@@ -6,10 +6,20 @@ from scipy.sparse import diags
 
 
 class GCNLayer(tf.keras.layers.Layer):
+    """
+    GCN hidden layer.
+    """
+
     def __init__(self, output_dim, activation="relu", **kwargs):
         super().__init__(**kwargs)
         self.output_dim = output_dim
+        self._activation_name = activation
         self.activation = tf.keras.activations.get(activation)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"output_dim": self.output_dim, "activation": self._activation_name})
+        return config
 
     def build(self, input_shape):
         self.kernel = self.add_weight(
@@ -32,11 +42,22 @@ class GCNLayer(tf.keras.layers.Layer):
         return self.activation(out + self.bias)
 
 class GCNClassifier(tf.keras.Model):
-    def __init__(self, hidden_dim=config.hidden_dim, num_classes=2):
-        super().__init__()
+    """
+    A GCN classifier model. Two hidden layers, multi-class classification output layer.
+    """
+
+    def __init__(self, hidden_dim=config.hidden_dim, num_classes=2, **kwargs):
+        super().__init__(**kwargs)
+        self.hidden_dim = hidden_dim
+        self.num_classes = num_classes
         self.gcn1 = GCNLayer(hidden_dim, activation="relu")
         self.gcn2 = GCNLayer(hidden_dim, activation="relu")
         self.classifier = tf.keras.layers.Dense(num_classes)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"hidden_dim": self.hidden_dim, "num_classes": self.num_classes})
+        return config
 
     def call(self, x, adj_norm):
         h = self.gcn1(x, adj_norm)
@@ -60,10 +81,14 @@ def _normalize_adjacency(adj):
 
 
 def _scipy_to_tf_sparse(csr_mat):
-    """Convert a scipy sparse matrix to a tf.SparseTensor on CPU."""
+    """
+    Convert a scipy sparse matrix to a tf.SparseTensor on CPU.
+    """
     coo = csr_mat.tocoo()
     indices = np.column_stack((coo.row, coo.col)).astype(np.int64)
     values = coo.data.astype(np.float32)
+
+    # Convert to tf.SparseTensor on CPU to avoid OOM.
     with tf.device("/CPU:0"):
         sparse = tf.SparseTensor(
             indices=indices, values=values,
@@ -74,7 +99,7 @@ def _scipy_to_tf_sparse(csr_mat):
 
 def _sample_subgraph(batch_nodes, adj_csr, node_features, max_neighbors, diag, num_hops=2):
     """
-    Sample a k-hop subgraph around batch_nodes with neighbor sampling.
+    Sample a subgraph around batch_nodes with neighbor sampling within k hops.
 
     Only sampled edges (plus self-loops) are included in the subgraph adjacency,
     not all edges between subgraph nodes. This keeps the subgraph sparse even when
@@ -88,24 +113,34 @@ def _sample_subgraph(batch_nodes, adj_csr, node_features, max_neighbors, diag, n
     frontier = batch_nodes.tolist()
     edges = {}  # (global_src, global_dst) -> pre-normalized value
 
+    # Breadth-first search loop, stopping at num_hops distance.
     for _ in range(num_hops):
         next_frontier = []
+        
+        # Sample neighbors for each node in the frontier.
         for node in frontier:
             start, end = adj_csr.indptr[node], adj_csr.indptr[node + 1]
             neighbors = adj_csr.indices[start:end]
             values = adj_csr.data[start:end]
+
+            # To conserve memory, we sample a subset of the neighbors.
             if len(neighbors) > max_neighbors:
                 chosen = np.random.choice(len(neighbors), max_neighbors, replace=False)
                 neighbors = neighbors[chosen]
                 values = values[chosen]
+
+            # Add edges to the subgraph.
             for nb, val in zip(neighbors, values):
                 nb_int = int(nb)
                 val_f = float(val)
                 edges[(node, nb_int)] = val_f
                 edges[(nb_int, node)] = val_f
+                
+                # Add new nodes to the frontier if they are not already in the subgraph.
                 if nb_int not in all_nodes:
                     all_nodes.add(nb_int)
                     next_frontier.append(nb_int)
+
         frontier = next_frontier
 
     sub_nodes = np.array(sorted(all_nodes))
@@ -140,6 +175,12 @@ def train(node_features, adjacency, labels,
           hidden_dim=config.hidden_dim, num_classes=None, epochs=config.epochs,
           batch_size=config.batch_size, max_neighbors=config.max_neighbors, lr=config.learning_rate,
           weight_decay=config.weight_decay):
+    """
+    Train a GCN classifier on the given node features and adjacency matrix.
+
+    Returns the trained model.
+    """
+
     labels = tf.cast(tf.constant(labels), tf.int32)
     if num_classes is None:
         num_classes = int(tf.reduce_max(labels).numpy()) + 1
@@ -151,15 +192,20 @@ def train(node_features, adjacency, labels,
     n_nodes = node_features.shape[0]
 
     model = GCNClassifier(hidden_dim=hidden_dim, num_classes=num_classes)
+    # AdamW optimizer is used for training to avoid overfitting.
     optimizer = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=weight_decay)
+    # Sparse categorical cross-entropy loss is used for multi-class classification with single-label encoding.
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
+    # Epoch loop
     for epoch in range(1, epochs + 1):
+        # Shuffle the node indices for each epoch.
         indices = np.random.permutation(n_nodes)
         epoch_loss = 0.0
         epoch_correct = 0
         n_batches = 0
 
+        # Mini-batch loop
         for start in range(0, n_nodes, batch_size):
             batch_idx = indices[start:start + batch_size]
             batch_labels = tf.gather(labels, batch_idx)

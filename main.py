@@ -16,23 +16,28 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 logging.info(gpus)
 
 if gpus:
-  try:    
-    for gpu in gpus:
-      tf.config.experimental.set_visible_devices(gpu, 'GPU')
-      tf.config.experimental.set_memory_growth(gpu, True)
+    try:    
+        for gpu in gpus:
+            tf.config.experimental.set_visible_devices(gpu, 'GPU')
+            tf.config.experimental.set_memory_growth(gpu, True)
 
-    logical_gpus = tf.config.list_logical_devices('GPU')
-  except Exception as e:
-    logging.error("Exception setting up GPUs")
-    logging.error(e)
+        logical_gpus = tf.config.list_logical_devices('GPU')
+    except Exception as e:
+        logging.error("Exception setting up GPUs")
+        logging.error(e)
 
-def show_report(y_true, y_pred):
-    logging.info(f"Test accuracy: {accuracy_score(y_true, y_pred):.4f}")
+def evaluate(y_true, y_pred):
+    accuracy = accuracy_score(y_true, y_pred)
+    
+    logging.info(f"Test accuracy: {accuracy:.4f}")
     # TODO: Add more metrics i.e. precision, recall, f1-score, confusion matrix, etc.
 
+    return accuracy
+    
 def main():
     parser = argparse.ArgumentParser(description="Convert network flows CSV to GNN tensors.")
     parser.add_argument("--csv-path", required=True, help="Path to the flows CSV file")
+    parser.add_argument("--model-path", required=True, help="Path to save the trained model (saved only if test accuracy > 0.95)")
     args = parser.parse_args()
 
     logging.info(f"Loading flows from {args.csv_path}")
@@ -65,7 +70,13 @@ def main():
     preds = predict(model, test_features, test_adj)
     true = test_labels.numpy()
 
-    show_report(true, preds)
+    accuracy = evaluate(true, preds)
+
+    if accuracy > 0.95:
+        logging.info(f"Saving model to {args.model_path} (accuracy {accuracy:.4f} > 0.95)")
+        model.save(args.model_path)
+    else:
+        logging.info(f"Not saving model (accuracy {accuracy:.4f} <= 0.95)")
 
 if __name__ == "__main__":
     main()
