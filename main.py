@@ -4,9 +4,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from flows_to_tensors import flows_to_tensors
 from cic_to_flowmeter import cic_to_pyflowmeter_columns
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import accuracy_score
 from model import train, predict
-from meta import class_names
+import config
+from config import class_names
 import tensorflow as tf
 
 logging.basicConfig(level=logging.INFO)
@@ -21,27 +22,13 @@ if gpus:
       tf.config.experimental.set_memory_growth(gpu, True)
 
     logical_gpus = tf.config.list_logical_devices('GPU')
-    #logging.info(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
   except Exception as e:
-    logging.error("EXCEPTION")
+    logging.error("Exception setting up GPUs")
     logging.error(e)
 
 def show_report(y_true, y_pred):
     logging.info(f"Test accuracy: {accuracy_score(y_true, y_pred):.4f}")
-
-    present_labels = sorted(set(y_true) | set(y_pred))
-    present_names = [class_names[i] for i in present_labels]
-
-    print("\n" + classification_report(
-        y_true, y_pred, labels=present_labels, target_names=present_names, zero_division=0
-    ))
-
-    cm = confusion_matrix(y_true, y_pred, labels=present_labels)
-    header = "  ".join(f"{n[:8]:>8}" for n in present_names)
-    print(f"Confusion matrix (rows=true, cols=predicted):\n{'':>12}{header}")
-    for i, row in enumerate(cm):
-        row_str = "  ".join(f"{v:>8d}" for v in row)
-        print(f"{present_names[i]:>12}{row_str}")
+    # TODO: Add more metrics i.e. precision, recall, f1-score, confusion matrix, etc.
 
 def main():
     parser = argparse.ArgumentParser(description="Convert network flows CSV to GNN tensors.")
@@ -54,7 +41,7 @@ def main():
     flows_df = cic_to_pyflowmeter_columns(flows_df)
     logging.info(f"Loaded {len(flows_df)} rows from {args.csv_path}")
 
-    train_df, test_df = train_test_split(flows_df, test_size=0.2, shuffle=True, random_state=42)
+    train_df, test_df = train_test_split(flows_df, test_size=config.test_size, shuffle=True, random_state=42)
     logging.info(f"Train/test split: {len(train_df)} / {len(test_df)} rows")
 
     logging.info("Converting flows to tensors")
@@ -63,8 +50,8 @@ def main():
     
     logging.info(f"Node features shape: {node_features.shape}")
     logging.info(f"Node features dtype: {node_features.dtype}")
-    logging.info(f"Adjacency dense shape: {adjacency.dense_shape.numpy()}")
-    logging.info(f"Adjacency non-zero entries: {adjacency.values.shape[0]}")
+    logging.info(f"Adjacency shape: {adjacency.shape}")
+    logging.info(f"Adjacency non-zero entries: {adjacency.nnz}")
     logging.info(f"Labels: {labels}")
 
     logging.info("Training model")

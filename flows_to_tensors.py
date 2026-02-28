@@ -1,11 +1,10 @@
-import pandas as pd
 import numpy as np
 import logging
 from collections import defaultdict
 from sklearn.preprocessing import StandardScaler
-import tensorflow as tf
 from scipy.sparse import csr_matrix
-from meta import class_names
+from config import class_names
+import tensorflow as tf
 
 def flows_to_tensors(flows_df):
     """
@@ -22,7 +21,10 @@ def flows_to_tensors(flows_df):
         'totlen_fwd_pkts', 'totlen_bwd_pkts',
         'fwd_pkt_len_mean', 'bwd_pkt_len_mean',
         'flow_byts_s', 'flow_pkts_s',
-        'fwd_iat_mean', 'bwd_iat_mean'
+        'fwd_iat_mean', 'bwd_iat_mean',
+        'fin_flag_cnt', 'syn_flag_cnt', 'rst_flag_cnt', 'psh_flag_cnt',
+        'ack_flag_cnt', 'urg_flag_cnt', 'cwe_flag_count', 'ece_flag_cnt',
+        'down_up_ratio', 'pkt_size_avg',
     ]
 
     available_feature_names = [f for f in feature_names if f in flows_df.columns]
@@ -36,9 +38,7 @@ def flows_to_tensors(flows_df):
     node_features = tf.constant(node_features, dtype=tf.float32)
 
     logging.info("Creating flow edges")
-    edges = create_flow_edges_sparse(flows_df)
-    logging.info("Creating sparse adjacency")
-    adjacency = create_sparse_adjacency(edges, flow_count)
+    adjacency = create_flow_edges_sparse(flows_df)
     logging.info("Flows converted to tensors")
 
     name_to_idx = {name: i for i, name in enumerate(class_names)}
@@ -91,10 +91,3 @@ def create_flow_edges_sparse(flows_df):
 
     return adj
 
-def create_sparse_adjacency(edges, flow_count):    
-    coo = edges.tocoo()
-    indices = np.column_stack((coo.row, coo.col)).astype(np.int64)
-    values = coo.data.astype(np.float32)
-
-    adjacency = tf.SparseTensor(indices=indices, values=values, dense_shape=[flow_count, flow_count])
-    return adjacency

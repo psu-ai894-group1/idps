@@ -18,3 +18,8 @@ class_names = [
 
 epochs = 10
 hidden_dim = 128
+batch_size = 1024
+max_neighbors = 25
+test_size = 0.2
+learning_rate = 0.01
+weight_decay = 0.01
