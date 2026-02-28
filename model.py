@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import logging
-
+import meta
 
 class GCNLayer(tf.keras.layers.Layer):
     def __init__(self, output_dim, activation="relu", **kwargs):
@@ -26,9 +26,8 @@ class GCNLayer(tf.keras.layers.Layer):
         out = tf.sparse.sparse_dense_matmul(adj_norm, xw)
         return self.activation(out + self.bias)
 
-
 class GCNClassifier(tf.keras.Model):
-    def __init__(self, hidden_dim=64, num_classes=2):
+    def __init__(self, hidden_dim=meta.hidden_dim, num_classes=2):
         super().__init__()
         self.gcn1 = GCNLayer(hidden_dim, activation="relu")
         self.gcn2 = GCNLayer(hidden_dim, activation="relu")
@@ -38,7 +37,6 @@ class GCNClassifier(tf.keras.Model):
         h = self.gcn1(x, adj_norm)
         h = self.gcn2(h, adj_norm)
         return self.classifier(h)
-
 
 def _normalize_adjacency(adj):
     n = adj.dense_shape[0]
@@ -66,7 +64,7 @@ def _normalize_adjacency(adj):
 
 
 def train(node_features, adjacency, labels,
-          hidden_dim=64, num_classes=None, epochs=50, lr=0.01):
+          hidden_dim=meta.hidden_dim, num_classes=None, epochs=meta.epochs, lr=0.01):
     labels = tf.cast(tf.constant(labels), tf.int32)
     if num_classes is None:
         num_classes = int(tf.reduce_max(labels).numpy()) + 1
@@ -85,14 +83,31 @@ def train(node_features, adjacency, labels,
         grads = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
-        if epoch % 10 == 0 or epoch == 1:
-            preds = tf.argmax(logits, axis=1, output_type=tf.int32)
-            accuracy = tf.reduce_mean(
-                tf.cast(tf.equal(preds, labels), tf.float32)
-            )
-            logging.info(
-                f"Epoch {epoch:>3d}/{epochs}  loss={loss.numpy():.4f}  "
-                f"accuracy={accuracy.numpy():.4f}"
-            )
+        preds = tf.argmax(logits, axis=1, output_type=tf.int32)
+        accuracy = tf.reduce_mean(
+            tf.cast(tf.equal(preds, labels), tf.float32)
+        )
+        logging.info(
+            f"Epoch {epoch:>3d}/{epochs}  loss={loss.numpy():.4f}  "
+            f"accuracy={accuracy.numpy():.4f}"
+        )
 
     return model
+
+
+def predict(model, node_features, adjacency):
+    """
+    Run inference on a graph and return predicted class indices.
+
+    Args:
+        model: A trained GCNClassifier.
+        node_features: tf.Tensor of shape [N, F].
+        adjacency: tf.SparseTensor of shape [N, N].
+
+    Returns:
+        1-D numpy array of predicted class indices, shape [N].
+    """
+    adj_norm = _normalize_adjacency(adjacency)
+    adj_norm = tf.sparse.reorder(adj_norm)
+    logits = model(node_features, adj_norm)
+    return tf.argmax(logits, axis=1, output_type=tf.int32).numpy()

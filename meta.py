@@ -15,3 +15,6 @@ class_names = [
     'Web Attack – Sql Injection', 
     'Heartbleed'
     ]
+
+epochs = 25
+hidden_dim = 64
