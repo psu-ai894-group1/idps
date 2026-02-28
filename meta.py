@@ -16,5 +16,5 @@ class_names = [
     'Heartbleed'
     ]
 
-epochs = 25
-hidden_dim = 64
+epochs = 10
+hidden_dim = 128

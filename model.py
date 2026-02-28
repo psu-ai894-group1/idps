@@ -3,6 +3,7 @@ import numpy as np
 import logging
 import meta
 
+
 class GCNLayer(tf.keras.layers.Layer):
     def __init__(self, output_dim, activation="relu", **kwargs):
         super().__init__(**kwargs)
@@ -23,7 +24,10 @@ class GCNLayer(tf.keras.layers.Layer):
 
     def call(self, x, adj_norm):
         xw = tf.matmul(x, self.kernel)
-        out = tf.sparse.sparse_dense_matmul(adj_norm, xw)
+        # This would overflow GPU limits. We had to move it to CPU in order to work as per
+        # this this issue thread on GitHub: https://github.com/tkipf/keras-gcn/issues/51
+        with tf.device("/CPU:0"):
+            out = tf.sparse.sparse_dense_matmul(adj_norm, xw)
         return self.activation(out + self.bias)
 
 class GCNClassifier(tf.keras.Model):
@@ -78,10 +82,13 @@ def train(node_features, adjacency, labels,
     for epoch in range(1, epochs + 1):
         with tf.GradientTape() as tape:
             logits = model(node_features, adj_norm)
-            loss = loss_fn(labels, logits)
+            # This would overflow GPU limits. We had to move it to CPU in order to work as per
+            # this this issue thread on GitHub: https://github.com/tkipf/keras-gcn/issues/51
+            with tf.device("/CPU:0"):
+                loss = loss_fn(labels, logits)
 
-        grads = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(grads, model.trainable_variables))
+                grads = tape.gradient(loss, model.trainable_variables)
+                optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
         preds = tf.argmax(logits, axis=1, output_type=tf.int32)
         accuracy = tf.reduce_mean(

@@ -7,8 +7,24 @@ from cic_to_flowmeter import cic_to_pyflowmeter_columns
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from model import train, predict
 from meta import class_names
+import tensorflow as tf
 
 logging.basicConfig(level=logging.INFO)
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+logging.info(gpus)
+
+if gpus:
+  try:    
+    for gpu in gpus:
+      tf.config.experimental.set_visible_devices(gpu, 'GPU')
+      tf.config.experimental.set_memory_growth(gpu, True)
+
+    logical_gpus = tf.config.list_logical_devices('GPU')
+    #logging.info(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPU")
+  except Exception as e:
+    logging.error("EXCEPTION")
+    logging.error(e)
 
 def show_report(y_true, y_pred):
     logging.info(f"Test accuracy: {accuracy_score(y_true, y_pred):.4f}")
