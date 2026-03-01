@@ -3,7 +3,7 @@ import logging
 from collections import defaultdict
 from sklearn.preprocessing import StandardScaler
 from scipy.sparse import csr_matrix
-from config import class_names
+from config import class_names, feature_names
 import tensorflow as tf
 
 def flows_to_tensors(flows_df):
@@ -14,18 +14,7 @@ def flows_to_tensors(flows_df):
     https://link.springer.com/article/10.1186/s42400-024-00296-8
     """
     flow_count = len(flows_df)
-    logging.info(f"Flow count: {flow_count}")   
-
-    feature_names = [
-        'flow_duration', 'tot_fwd_pkts', 'tot_bwd_pkts',
-        'totlen_fwd_pkts', 'totlen_bwd_pkts',
-        'fwd_pkt_len_mean', 'bwd_pkt_len_mean',
-        'flow_byts_s', 'flow_pkts_s',
-        'fwd_iat_mean', 'bwd_iat_mean',
-        'fin_flag_cnt', 'syn_flag_cnt', 'rst_flag_cnt', 'psh_flag_cnt',
-        'ack_flag_cnt', 'urg_flag_cnt', 'cwe_flag_count', 'ece_flag_cnt',
-        'down_up_ratio', 'pkt_size_avg',
-    ]
+    logging.info(f"Flow count: {flow_count}")
 
     available_feature_names = [f for f in feature_names if f in flows_df.columns]
     logging.info(f"Available feature names: {available_feature_names}")
