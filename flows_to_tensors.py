@@ -30,10 +30,13 @@ def flows_to_tensors(flows_df):
     adjacency = create_flow_edges_sparse(flows_df)
     logging.info("Flows converted to tensors")
 
-    name_to_idx = {name: i for i, name in enumerate(class_names)}
-    label_strs = flows_df["label"].values.astype(str)
-    labels = np.array([name_to_idx[s.strip()] for s in label_strs], dtype=np.int32)
-    labels = tf.constant(labels, dtype=tf.int32)
+    if "label" in flows_df.columns:
+        name_to_idx = {name: i for i, name in enumerate(class_names)}
+        label_strs = flows_df["label"].values.astype(str)
+        labels = np.array([name_to_idx[s.strip()] for s in label_strs], dtype=np.int32)
+        labels = tf.constant(labels, dtype=tf.int32)
+    else:
+        labels = None
 
     return node_features, adjacency, labels
  
