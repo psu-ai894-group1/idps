@@ -6,12 +6,15 @@ from scipy.sparse import csr_matrix
 from config import class_names, feature_names
 import tensorflow as tf
 
-def flows_to_tensors(flows_df):
+def flows_to_tensors(flows_df, scaler=None):
     """
     Convert flows from pyflowmeter format to tensors for use in GNNs.
 
     This style of graph uses flows as nodes and edges based on behaviors as is described in:
     https://link.springer.com/article/10.1186/s42400-024-00296-8
+
+    If scaler is None, a new StandardScaler is fitted on the data (training).
+    If scaler is provided, it is used to transform the data without refitting (inference).
     """
     flow_count = len(flows_df)
     logging.info(f"Flow count: {flow_count}")
@@ -20,9 +23,13 @@ def flows_to_tensors(flows_df):
     logging.info(f"Available feature names: {available_feature_names}")
 
     node_features = flows_df[available_feature_names].values
-    scaler = StandardScaler()
-    logging.info("Scaling node features")
-    node_features = scaler.fit_transform(node_features)
+    if scaler is None:
+        scaler = StandardScaler()
+        logging.info("Fitting and scaling node features")
+        node_features = scaler.fit_transform(node_features)
+    else:
+        logging.info("Scaling node features with pre-fitted scaler")
+        node_features = scaler.transform(node_features)
     logging.info("Converting node features to TensorFlow constant")
     node_features = tf.constant(node_features, dtype=tf.float32)
 
@@ -38,7 +45,7 @@ def flows_to_tensors(flows_df):
     else:
         labels = None
 
-    return node_features, adjacency, labels
+    return node_features, adjacency, labels, scaler
  
 def create_flow_edges_sparse(flows_df):
     """

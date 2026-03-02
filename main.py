@@ -6,6 +6,7 @@ dotenv.load_dotenv()
 
 from pyflowmeter.sniffer import create_sniffer
 import time
+import joblib
 import pandas as pd
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -16,14 +17,15 @@ import tensorflow as tf
 from model import predict, GCNClassifier, GCNLayer
 
 class FlowFileHandler(FileSystemEventHandler):
-    def __init__(self, model):
+    def __init__(self, model, scaler):
         self.model = model
+        self.scaler = scaler
         self.pos = 0
         logging.info("FlowFileHandler initialized")
 
     def process_flows(self, flows_df):
         logging.info("Processing flows: %d", len(flows_df))
-        node_features, adjacency, _ = flows_to_tensors(flows_df)
+        node_features, adjacency, _, _ = flows_to_tensors(flows_df, scaler=self.scaler)
         preds = predict(self.model, node_features, adjacency)
         
         for i in range(len(flows_df)):
@@ -84,9 +86,12 @@ def main():
         args.model_path,
         custom_objects={"GCNClassifier": GCNClassifier, "GCNLayer": GCNLayer},
     )
+    scaler_path = args.model_path + ".scaler.joblib"
+    logging.info(f"Loading scaler from {scaler_path}")
+    scaler = joblib.load(scaler_path)
 
     observer = Observer()
-    observer.schedule(FlowFileHandler(model), path=output_dir, recursive=False)
+    observer.schedule(FlowFileHandler(model, scaler), path=output_dir, recursive=False)
     observer.start()
     sniffer.start()
 

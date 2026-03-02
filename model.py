@@ -4,28 +4,19 @@ import logging
 import config
 from scipy.sparse import diags
 
-
 class GCNLayer(tf.keras.layers.Layer):
     """
-    GCN hidden layer.
+    GCN hidden layer. Since all hidden layers are the same, we can use a single layer class.
     """
 
-    def __init__(self, output_dim, activation="relu", **kwargs):
+    def __init__(self, output_dim, **kwargs):
         super().__init__(**kwargs)
         self.output_dim = output_dim
-        self._activation_name = activation
-        self.activation = tf.keras.activations.get(activation)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"output_dim": self.output_dim, "activation": self._activation_name})
-        return config
 
     def build(self, input_shape):
         self.kernel = self.add_weight(
             name="kernel",
             shape=(input_shape[-1], self.output_dim),
-            initializer="glorot_uniform",
         )
         self.bias = self.add_weight(
             name="bias",
@@ -39,35 +30,53 @@ class GCNLayer(tf.keras.layers.Layer):
         # this this issue thread on GitHub: https://github.com/tkipf/keras-gcn/issues/51
         with tf.device("/CPU:0"):
             out = tf.sparse.sparse_dense_matmul(adj_norm, xw)
-        return self.activation(out + self.bias)
+        return tf.nn.relu(out + self.bias)
 
 class GCNClassifier(tf.keras.Model):
     """
-    A GCN classifier model. Two hidden layers, multi-class classification output layer.
+    A GCN classifier model. Configurable hidden GCN+Dropout layers, multi-class classification output layer.
+
+    https://tkipf.github.io/graph-convolutional-networks/
     """
 
-    def __init__(self, hidden_dim=config.hidden_dim, num_classes=2, **kwargs):
+    def __init__(self, hidden_dim=config.hidden_dim, num_classes=2,
+                 dropout_rate=config.dropout_rate,
+                 num_hidden_layers=config.num_hidden_layers, **kwargs):
         super().__init__(**kwargs)
         self.hidden_dim = hidden_dim
         self.num_classes = num_classes
-        self.gcn1 = GCNLayer(hidden_dim, activation="relu")
-        self.gcn2 = GCNLayer(hidden_dim, activation="relu")
+        self.dropout_rate = dropout_rate
+        self.num_hidden_layers = num_hidden_layers
+        self.gcn_layers = []
+        self.dropout_layers = []
+        for _ in range(num_hidden_layers):
+            self.gcn_layers.append(GCNLayer(hidden_dim))
+            self.dropout_layers.append(tf.keras.layers.Dropout(dropout_rate))
         self.classifier = tf.keras.layers.Dense(num_classes)
 
     def get_config(self):
         config = super().get_config()
-        config.update({"hidden_dim": self.hidden_dim, "num_classes": self.num_classes})
+        config.update({
+            "hidden_dim": self.hidden_dim,
+            "num_classes": self.num_classes,
+            "dropout_rate": self.dropout_rate,
+            "num_hidden_layers": self.num_hidden_layers,
+        })
         return config
 
-    def call(self, x, adj_norm):
-        h = self.gcn1(x, adj_norm)
-        h = self.gcn2(h, adj_norm)
+    def call(self, x, adj_norm, training=False):
+        h = x
+        for gcn, dropout in zip(self.gcn_layers, self.dropout_layers):
+            h = gcn(h, adj_norm)
+            h = dropout(h, training=training)
         return self.classifier(h)
 
 def _normalize_adjacency(adj):
     """
     Compute D^{-1/2} (A + I) D^{-1/2} using scipy sparse matrices.
     
+    This prevents nodes with high degree (many connections) from dominating the learning process.
+
     https://github.com/tkipf/gcn/blob/master/gcn/utils.py
     https://tkipf.github.io/graph-convolutional-networks/
     https://github.com/tkipf/pygcn/issues/47
@@ -84,6 +93,8 @@ def _scipy_to_tf_sparse(csr_mat):
     """
     Convert a scipy sparse matrix to a tf.SparseTensor on CPU.
     """
+    # Convert from CSR to COO format to get row and column indices as that's what
+    # TensorFlow needs
     coo = csr_mat.tocoo()
     indices = np.column_stack((coo.row, coo.col)).astype(np.int64)
     values = coo.data.astype(np.float32)
@@ -172,18 +183,20 @@ def _sample_subgraph(batch_nodes, adj_csr, node_features, max_neighbors, diag, n
 
 
 def train(node_features, adjacency, labels,
-          hidden_dim=config.hidden_dim, num_classes=None, epochs=config.epochs,
+          hidden_dim=config.hidden_dim, num_classes=len(config.class_names), epochs=config.epochs,
           batch_size=config.batch_size, max_neighbors=config.max_neighbors, lr=config.learning_rate,
-          weight_decay=config.weight_decay):
+          weight_decay=config.weight_decay,
+          xval_features=None, xval_adj=None, xval_labels=None):
     """
     Train a GCN classifier on the given node features and adjacency matrix.
+
+    If xval_features/xval_adj/xval_labels are provided, cross-validation
+    accuracy is computed at the end of each epoch.
 
     Returns the trained model.
     """
 
     labels = tf.cast(tf.constant(labels), tf.int32)
-    if num_classes is None:
-        num_classes = int(tf.reduce_max(labels).numpy()) + 1
 
     logging.info("Normalizing adjacency matrix")
     adj_norm = _normalize_adjacency(adjacency)
@@ -191,11 +204,27 @@ def train(node_features, adjacency, labels,
 
     n_nodes = node_features.shape[0]
 
+    # Use weighted loss to deal with class imbalance.
+    # Compute class weights inversely proportional to class frequency.
+    # https://gist.github.com/jonnyli1125/5384bb9a41caaac983f1cd737359c6c2
+    # https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
+    labels_np = labels.numpy()
+    class_counts = np.bincount(labels_np, minlength=num_classes).astype(np.float32)
+    class_weights = np.where(class_counts > 0, n_nodes / (num_classes * class_counts), 0.0)
+    # Build a per-sample weight array for efficient lookup.
+    sample_weights = tf.constant(class_weights[labels_np], dtype=tf.float32)
+    logging.info(f"Class weights: {dict(enumerate(class_weights.tolist()))}")
+
     model = GCNClassifier(hidden_dim=hidden_dim, num_classes=num_classes)
     # AdamW optimizer is used for training to avoid overfitting.
     optimizer = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=weight_decay)
-    # Sparse categorical cross-entropy loss is used for multi-class classification with single-label encoding.
-    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+    # Sparse categorical cross-entropy loss with no built-in reduction so we can apply class weights.
+    loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+
+    # Early stopping: stop if loss doesn't improve for `patience` epochs.
+    best_loss = float('inf')
+    patience = config.early_stopping_patience
+    epochs_without_improvement = 0
 
     # Epoch loop
     for epoch in range(1, epochs + 1):
@@ -214,16 +243,23 @@ def train(node_features, adjacency, labels,
                 batch_idx, adj_norm, node_features, max_neighbors, diag)
 
             with tf.GradientTape() as tape:
-                logits = model(sub_features, sub_adj)
+                logits = model(sub_features, sub_adj, training=True)
                 batch_logits = tf.gather(logits, batch_local)
-                loss = loss_fn(batch_labels, batch_logits)
+                # Compute class weights for this batch to deal with class imbalance 
+                batch_weights = tf.gather(sample_weights, batch_idx)
+                per_sample_loss = loss_fn(batch_labels, batch_logits)
+                # Use weighted loss to deal with class imbalance.
+                loss = tf.reduce_mean(per_sample_loss * batch_weights)
 
             # Gradients computation is moved to CPU to avoid OOM.
             with tf.device("/CPU:0"):
+                # Backpropagation!
                 grads = tape.gradient(loss, model.trainable_variables)
 
+            # Adjust the model's weights based on the computed gradients (train)
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
+            # Compute training accuracy for this batch.
             preds = tf.argmax(batch_logits, axis=1, output_type=tf.int32)
             epoch_correct += int(tf.reduce_sum(
                 tf.cast(tf.equal(preds, batch_labels), tf.int32)
@@ -231,12 +267,36 @@ def train(node_features, adjacency, labels,
             epoch_loss += loss.numpy()
             n_batches += 1
 
+        # Compute average loss and accuracy for this epoch.
         avg_loss = epoch_loss / n_batches
         accuracy = epoch_correct / n_nodes
-        logging.info(
-            f"Epoch {epoch:>3d}/{epochs}  loss={avg_loss:.4f}  "
-            f"accuracy={accuracy:.4f}"
-        )
+
+        # Compute cross-validation accuracy if available.
+        if xval_features is not None:
+            xval_preds = predict(model, xval_features, xval_adj)
+            xval_correct = int(np.sum(xval_preds == xval_labels.numpy()))
+            xval_acc = xval_correct / len(xval_labels)
+            logging.info(
+                f"Epoch {epoch:>3d}/{epochs}  loss={avg_loss:.4f}  "
+                f"train_acc={accuracy:.4f}  xval_acc={xval_acc:.4f}"
+            )
+        else:
+            logging.info(
+                f"Epoch {epoch:>3d}/{epochs}  loss={avg_loss:.4f}  "
+                f"accuracy={accuracy:.4f}"
+            )
+
+        # Early stopping check.
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            epochs_without_improvement = 0
+            model.save("output/checkpoint.keras")
+            logging.info(f"Checkpoint saved (loss={avg_loss:.4f})")
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= patience:
+                logging.info(f"Early stopping at epoch {epoch} (no loss improvement for {patience} epochs)")
+                break
 
     return model
 

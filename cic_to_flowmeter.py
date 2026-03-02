@@ -88,6 +88,7 @@ CIC_TO_PYFLOWMETER_COLUMNS = {
 
 def cic_to_pyflowmeter_columns(df):
     df = df.copy()
+    df.columns = df.columns.str.strip()
     if "Flow ID" in df.columns:
         df = df.drop(columns=["Flow ID"])
     df = df.rename(columns={k: v for k, v in CIC_TO_PYFLOWMETER_COLUMNS.items() if k in df.columns})

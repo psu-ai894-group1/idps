@@ -1,6 +1,8 @@
 import argparse
 import logging
+import os
 import pandas as pd
+import joblib
 from sklearn.model_selection import train_test_split
 from flows_to_tensors import flows_to_tensors
 from cic_to_flowmeter import cic_to_pyflowmeter_columns
@@ -11,6 +13,13 @@ from config import class_names
 import tensorflow as tf
 
 logging.basicConfig(level=logging.INFO)
+
+log_dir = "output"
+os.makedirs(log_dir, exist_ok=True)
+train_log_path = os.path.join(log_dir, "train.log")
+file_handler = logging.FileHandler(train_log_path, encoding="utf-8")
+file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+logging.getLogger().addHandler(file_handler)
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 logging.info(gpus)
@@ -47,25 +56,32 @@ def main():
     logging.info(f"Loaded {len(flows_df)} rows from {args.csv_path}")
 
     train_df, test_df = train_test_split(flows_df, test_size=config.test_size, shuffle=True, random_state=42)
-    logging.info(f"Train/test split: {len(train_df)} / {len(test_df)} rows")
+    # Split remaining data into train and cross-validation sets.
+    xval_fraction = config.xval_size / (1 - config.test_size)
+    train_df, xval_df = train_test_split(train_df, test_size=xval_fraction, shuffle=True, random_state=42)
+    logging.info(f"Train/xval/test split: {len(train_df)} / {len(xval_df)} / {len(test_df)} rows")
 
-    logging.info("Converting flows to tensors")
-    node_features, adjacency, labels = flows_to_tensors(train_df)
+    logging.info("Converting training flows to tensors")
+    node_features, adjacency, labels, scaler = flows_to_tensors(train_df)
     logging.info("Flows converted to tensors")
-    
+
     logging.info(f"Node features shape: {node_features.shape}")
     logging.info(f"Node features dtype: {node_features.dtype}")
     logging.info(f"Adjacency shape: {adjacency.shape}")
     logging.info(f"Adjacency non-zero entries: {adjacency.nnz}")
     logging.info(f"Labels: {labels}")
 
+    logging.info("Converting cross-validation set to tensors")
+    xval_features, xval_adj, xval_labels, _ = flows_to_tensors(xval_df, scaler=scaler)
+
     logging.info("Training model")
-    model = train(node_features, adjacency, labels)
+    model = train(node_features, adjacency, labels,
+                  xval_features=xval_features, xval_adj=xval_adj, xval_labels=xval_labels)
     logging.info("Model trained")
 
-    # Inference on test set
+    # Inference on test set — reuse the training scaler
     logging.info("Converting test set to tensors")
-    test_features, test_adj, test_labels = flows_to_tensors(test_df)
+    test_features, test_adj, test_labels, _ = flows_to_tensors(test_df, scaler=scaler)
     logging.info("Running inference on test set")
     preds = predict(model, test_features, test_adj)
     true = test_labels.numpy()
@@ -75,6 +91,9 @@ def main():
     if accuracy > 0.95:
         logging.info(f"Saving model to {args.model_path} (accuracy {accuracy:.4f} > 0.95)")
         model.save(args.model_path)
+        scaler_path = args.model_path + ".scaler.joblib"
+        joblib.dump(scaler, scaler_path)
+        logging.info(f"Saved scaler to {scaler_path}")
     else:
         logging.info(f"Not saving model (accuracy {accuracy:.4f} <= 0.95)")
 

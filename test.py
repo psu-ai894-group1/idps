@@ -1,7 +1,9 @@
 import argparse
 import logging
+import os
 import pandas as pd
 import numpy as np
+import joblib
 import tensorflow as tf
 from flows_to_tensors import flows_to_tensors
 from model import predict, GCNClassifier, GCNLayer
@@ -33,6 +35,9 @@ def main():
         args.model_path,
         custom_objects={"GCNClassifier": GCNClassifier, "GCNLayer": GCNLayer},
     )
+    scaler_path = args.model_path + ".scaler.joblib"
+    logging.info(f"Loading scaler from {scaler_path}")
+    scaler = joblib.load(scaler_path)
 
     mock_flow = pd.DataFrame([{
         "src_ip": "192.168.1.10",
@@ -62,7 +67,7 @@ def main():
     }])
 
     logging.info("Converting mock flow to tensors")
-    node_features, adjacency, labels = flows_to_tensors(mock_flow)
+    node_features, adjacency, labels, _ = flows_to_tensors(mock_flow, scaler=scaler)
 
     logging.info("Running inference on mock flow")
     preds = predict(model, node_features, adjacency)
