@@ -65,6 +65,10 @@ def main():
     node_features, adjacency, labels, scaler = flows_to_tensors(train_df)
     logging.info("Flows converted to tensors")
 
+    scaler_path = args.model_path + ".scaler.joblib"
+    joblib.dump(scaler, scaler_path)
+    logging.info(f"Saved scaler to {scaler_path}")
+
     logging.info(f"Node features shape: {node_features.shape}")
     logging.info(f"Node features dtype: {node_features.dtype}")
     logging.info(f"Adjacency shape: {adjacency.shape}")
@@ -85,17 +89,11 @@ def main():
     logging.info("Running inference on test set")
     preds = predict(model, test_features, test_adj)
     true = test_labels.numpy()
-
     accuracy = evaluate(true, preds)
+    logging.info(f"Test accuracy: {accuracy:.4f}")
 
-    if accuracy > 0.95:
-        logging.info(f"Saving model to {args.model_path} (accuracy {accuracy:.4f} > 0.95)")
-        model.save(args.model_path)
-        scaler_path = args.model_path + ".scaler.joblib"
-        joblib.dump(scaler, scaler_path)
-        logging.info(f"Saved scaler to {scaler_path}")
-    else:
-        logging.info(f"Not saving model (accuracy {accuracy:.4f} <= 0.95)")
+    model.save(args.model_path)
+    logging.info(f"Saved model to {args.model_path}")
 
 if __name__ == "__main__":
     main()
