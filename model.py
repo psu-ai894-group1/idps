@@ -271,31 +271,41 @@ def train(node_features, adjacency, labels,
         avg_loss = epoch_loss / n_batches
         accuracy = epoch_correct / n_nodes
 
-        # Compute cross-validation accuracy if available.
+        # Compute cross-validation loss and accuracy if available.
         if xval_features is not None:
-            xval_preds = predict(model, xval_features, xval_adj)
+            xval_adj_norm = _normalize_adjacency(xval_adj)
+            xval_adj_tf = _scipy_to_tf_sparse(xval_adj_norm)
+            xval_logits = model(xval_features, xval_adj_tf, training=False)
+            xval_per_sample_loss = loss_fn(xval_labels, xval_logits)
+            xval_loss = float(tf.reduce_mean(xval_per_sample_loss).numpy())
+            xval_preds = tf.argmax(xval_logits, axis=1, output_type=tf.int32).numpy()
             xval_correct = int(np.sum(xval_preds == xval_labels.numpy()))
             xval_acc = xval_correct / len(xval_labels)
             logging.info(
                 f"Epoch {epoch:>3d}/{epochs}  loss={avg_loss:.4f}  "
-                f"train_acc={accuracy:.4f}  xval_acc={xval_acc:.4f}"
+                f"train_acc={accuracy:.4f}  xval_loss={xval_loss:.4f}  "
+                f"xval_acc={xval_acc:.4f}"
             )
         else:
+            xval_loss = None
             logging.info(
                 f"Epoch {epoch:>3d}/{epochs}  loss={avg_loss:.4f}  "
                 f"accuracy={accuracy:.4f}"
             )
 
-        # Early stopping check.
-        if avg_loss < best_loss:
-            best_loss = avg_loss
+        # Early stopping check. Use validation loss when available, otherwise training loss.
+        monitored_loss = xval_loss if xval_loss is not None else avg_loss
+        if monitored_loss < best_loss:
+            best_loss = monitored_loss
             epochs_without_improvement = 0
             model.save("output/checkpoint.keras")
             logging.info(f"Checkpoint saved (loss={avg_loss:.4f})")
         else:
             epochs_without_improvement += 1
             if epochs_without_improvement >= patience:
-                logging.info(f"Early stopping at epoch {epoch} (no loss improvement for {patience} epochs)")
+                logging.info(f"Early stopping at epoch {epoch} (no improvement in "
+                             f"{'xval' if xval_loss is not None else 'training'} loss "
+                             f"for {patience} epochs)")
                 break
 
     return model

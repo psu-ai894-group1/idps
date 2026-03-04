@@ -5,6 +5,23 @@ import dotenv
 dotenv.load_dotenv()
 
 from pyflowmeter.sniffer import create_sniffer
+from pyflowmeter.features.flow_bytes import FlowBytes
+from pyflowmeter.features.context.packet_direction import PacketDirection
+
+
+def _patched_get_min_forward_header_bytes(self):
+    packets = self.feature.packets
+    if not packets:
+        return 0
+    forward_sizes = [
+        self._header_size(packet)
+        for packet, direction in packets
+        if direction == PacketDirection.FORWARD
+    ]
+    return min(forward_sizes) if forward_sizes else 0
+
+
+FlowBytes.get_min_forward_header_bytes = _patched_get_min_forward_header_bytes
 
 
 def main():

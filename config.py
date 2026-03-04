@@ -2,10 +2,10 @@ class_names = [
     'BENIGN', 
     #'DoS Hulk', 
     'PortScan', 
-    #'DDoS', 
+    'DDoS', 
     #'DoS GoldenEye', 
-    #'FTP-Patator', 
-    #'SSH-Patator', 
+    'FTP-Patator', 
+    'SSH-Patator', 
     #'DoS slowloris', 
     #'DoS Slowhttptest', 
     #'Bot', 
@@ -63,14 +63,14 @@ feature_names = [
     'active_std',           # Std dev of active time
 ]
 
-epochs = 32
+epochs = 24
 hidden_dim = 32
 num_hidden_layers = 2
 batch_size = 512
-max_neighbors = 16
+max_neighbors = 25
 test_size = 0.15
 xval_size = 0.15
 learning_rate = 0.01
-weight_decay = 0.025
-dropout_rate = 0.3
+weight_decay = 0.01
+dropout_rate = 0.1
 early_stopping_patience = 5
