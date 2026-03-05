@@ -211,8 +211,11 @@ def train(node_features, adjacency, labels,
         # Compute class weights inversely proportional to class frequency.
         # https://gist.github.com/jonnyli1125/5384bb9a41caaac983f1cd737359c6c2
         # https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
+        # Use smooth weights to penalize more for getting BENIGN wrong
+        # https://medium.com/gumgum-tech/handling-class-imbalance-by-introducing-sample-weighting-in-the-loss-function-3bdebd8203b4
         class_counts = np.bincount(labels_np, minlength=num_classes).astype(np.float32)
-        class_weights = np.where(class_counts > 0, n_nodes / (num_classes * class_counts), 0.0)
+        raw_weights = np.where(class_counts > 0, n_nodes / (num_classes * class_counts), 0.0)
+        class_weights = np.sqrt(raw_weights)
         sample_weights = tf.constant(class_weights[labels_np], dtype=tf.float32)
         logging.info(f"Class weights: {dict(enumerate(class_weights.tolist()))}")
     else:

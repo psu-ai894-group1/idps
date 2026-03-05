@@ -61,6 +61,10 @@ feature_names = [
     'fwd_act_data_pkts',    # Forward packets with at least 1 byte of payload
     'active_mean',          # Mean time the flow was active before going idle
     'active_std',           # Std dev of active time
+
+    # Per-IP-pair repetition features
+    'pair_flow_count',      # Number of flows sharing this (src, dst) pair
+    'pair_flow_rate',       # Flows per second for this IP pair
 ]
 
 epochs = 64
@@ -71,9 +75,12 @@ max_neighbors = 25
 test_size = 0.15
 xval_size = 0.15
 learning_rate = 0.001
-weight_decay = 0.01
-dropout_rate = 0.3
+weight_decay = 0.025
+dropout_rate = 0.5
 # None to disable gradient clipping
 clipnorm = 1.0
 early_stopping_patience = 10
 class_reweighting = True
+# 'all' to use every available feature, or a list of feature names to use
+use_features = 'all'
+pair_features = False

@@ -3,8 +3,42 @@ import logging
 from collections import defaultdict
 from sklearn.preprocessing import StandardScaler
 from scipy.sparse import csr_matrix
-from config import class_names, feature_names
+from config import class_names, feature_names, pair_features, use_features
 import tensorflow as tf
+
+def _add_pair_features(flows_df):
+    """Add per-IP-pair repetition features to distinguish brute-force from normal traffic."""
+    src_ip = flows_df["src_ip"].values
+    dst_ip = flows_df["dst_ip"].values
+
+    # Canonical IP pair (same sorting as create_flow_edges_sparse)
+    pairs = [tuple(sorted([src_ip[i], dst_ip[i]])) for i in range(len(flows_df))]
+    flows_df = flows_df.copy()
+    flows_df["_pair"] = pairs
+
+    # Count flows per pair
+    pair_counts = flows_df.groupby("_pair")["_pair"].transform("count")
+    flows_df["pair_flow_count"] = np.log1p(pair_counts.values)
+
+    # Flow rate per pair (flows per second)
+    if "timestamp" in flows_df.columns:
+        import pandas as pd
+        flows_df["_ts"] = pd.to_datetime(flows_df["timestamp"], errors="coerce").astype(np.int64) / 1e9
+        pair_stats = flows_df.groupby("_pair")["_ts"].agg(["min", "max", "count"])
+        pair_stats["time_span"] = pair_stats["max"] - pair_stats["min"]
+        pair_stats["rate"] = np.where(
+            pair_stats["time_span"] > 0,
+            pair_stats["count"] / pair_stats["time_span"],
+            0.0,
+        )
+        rate_map = pair_stats["rate"].to_dict()
+        flows_df["pair_flow_rate"] = np.log1p([rate_map[p] for p in flows_df["_pair"]])
+    else:
+        flows_df["pair_flow_rate"] = 0.0
+
+    flows_df.drop(columns=["_pair"] + (["_ts"] if "_ts" in flows_df.columns else []), inplace=True)
+    return flows_df
+
 
 def flows_to_tensors(flows_df, scaler=None):
     """
@@ -16,10 +50,19 @@ def flows_to_tensors(flows_df, scaler=None):
     If scaler is None, a new StandardScaler is fitted on the data (training).
     If scaler is provided, it is used to transform the data without refitting (inference).
     """
+    if pair_features:
+        flows_df = _add_pair_features(flows_df)
     flow_count = len(flows_df)
     logging.info(f"Flow count: {flow_count}")
 
+    pair_feature_names = {'pair_flow_count', 'pair_flow_rate'}
     available_feature_names = [f for f in feature_names if f in flows_df.columns]
+    if use_features != 'all':
+        available_feature_names = [f for f in available_feature_names
+                                   if f in use_features or f in pair_feature_names]
+    if not pair_features:
+        available_feature_names = [f for f in available_feature_names
+                                   if f not in pair_feature_names]
     logging.info(f"Available feature names: {available_feature_names}")
 
     node_features = flows_df[available_feature_names].values
