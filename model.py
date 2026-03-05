@@ -185,7 +185,8 @@ def _sample_subgraph(batch_nodes, adj_csr, node_features, max_neighbors, diag, n
 def train(node_features, adjacency, labels,
           hidden_dim=config.hidden_dim, num_classes=len(config.class_names), epochs=config.epochs,
           batch_size=config.batch_size, max_neighbors=config.max_neighbors, lr=config.learning_rate,
-          weight_decay=config.weight_decay,
+          weight_decay=config.weight_decay, clipnorm=config.clipnorm,
+          class_reweighting=config.class_reweighting,
           xval_features=None, xval_adj=None, xval_labels=None):
     """
     Train a GCN classifier on the given node features and adjacency matrix.
@@ -204,20 +205,25 @@ def train(node_features, adjacency, labels,
 
     n_nodes = node_features.shape[0]
 
-    # Use weighted loss to deal with class imbalance.
-    # Compute class weights inversely proportional to class frequency.
-    # https://gist.github.com/jonnyli1125/5384bb9a41caaac983f1cd737359c6c2
-    # https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
     labels_np = labels.numpy()
-    class_counts = np.bincount(labels_np, minlength=num_classes).astype(np.float32)
-    class_weights = np.where(class_counts > 0, n_nodes / (num_classes * class_counts), 0.0)
-    # Build a per-sample weight array for efficient lookup.
-    sample_weights = tf.constant(class_weights[labels_np], dtype=tf.float32)
-    logging.info(f"Class weights: {dict(enumerate(class_weights.tolist()))}")
+    if class_reweighting:
+        # Use weighted loss to deal with class imbalance.
+        # Compute class weights inversely proportional to class frequency.
+        # https://gist.github.com/jonnyli1125/5384bb9a41caaac983f1cd737359c6c2
+        # https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
+        class_counts = np.bincount(labels_np, minlength=num_classes).astype(np.float32)
+        class_weights = np.where(class_counts > 0, n_nodes / (num_classes * class_counts), 0.0)
+        sample_weights = tf.constant(class_weights[labels_np], dtype=tf.float32)
+        logging.info(f"Class weights: {dict(enumerate(class_weights.tolist()))}")
+    else:
+        sample_weights = tf.ones(n_nodes, dtype=tf.float32)
+        logging.info("Class reweighting disabled")
 
     model = GCNClassifier(hidden_dim=hidden_dim, num_classes=num_classes)
     # AdamW optimizer is used for training to avoid overfitting.
-    optimizer = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=weight_decay)
+    # Gradient clipping is used to prevent exploding gradients.
+    # https://neptune.ai/blog/understanding-gradient-clipping-and-how-it-can-fix-exploding-gradients-problem
+    optimizer = tf.keras.optimizers.AdamW(learning_rate=lr, weight_decay=weight_decay, clipnorm=clipnorm)
     # Sparse categorical cross-entropy loss with no built-in reduction so we can apply class weights.
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
@@ -225,6 +231,11 @@ def train(node_features, adjacency, labels,
     best_loss = float('inf')
     patience = config.early_stopping_patience
     epochs_without_improvement = 0
+
+    # Pre-compute cross-validation adjacency normalization
+    if xval_features is not None:
+        xval_adj_norm = _normalize_adjacency(xval_adj)
+        xval_adj_tf = _scipy_to_tf_sparse(xval_adj_norm)
 
     # Epoch loop
     for epoch in range(1, epochs + 1):
@@ -273,8 +284,6 @@ def train(node_features, adjacency, labels,
 
         # Compute cross-validation loss and accuracy if available.
         if xval_features is not None:
-            xval_adj_norm = _normalize_adjacency(xval_adj)
-            xval_adj_tf = _scipy_to_tf_sparse(xval_adj_norm)
             xval_logits = model(xval_features, xval_adj_tf, training=False)
             xval_per_sample_loss = loss_fn(xval_labels, xval_logits)
             xval_loss = float(tf.reduce_mean(xval_per_sample_loss).numpy())
@@ -299,7 +308,7 @@ def train(node_features, adjacency, labels,
             best_loss = monitored_loss
             epochs_without_improvement = 0
             model.save("output/checkpoint.keras")
-            logging.info(f"Checkpoint saved (loss={avg_loss:.4f})")
+            logging.info(f"Checkpoint saved (loss={monitored_loss:.4f})")
         else:
             epochs_without_improvement += 1
             if epochs_without_improvement >= patience:
