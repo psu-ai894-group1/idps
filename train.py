@@ -6,8 +6,8 @@ import joblib
 from sklearn.model_selection import train_test_split
 from flows_to_tensors import flows_to_tensors
 from cic_to_flowmeter import cic_to_pyflowmeter_columns
-from sklearn.metrics import accuracy_score
-from model import train, predict
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from model import train, predict, GCNClassifier, GCNLayer
 import config
 from config import class_names
 import tensorflow as tf
@@ -36,17 +36,26 @@ if gpus:
         logging.error(e)
 
 def evaluate(y_true, y_pred):
+    # TODO: Add more metrics i.e. precision, recall, f1-score, etc.
     accuracy = accuracy_score(y_true, y_pred)
-    
     logging.info(f"Test accuracy: {accuracy:.4f}")
-    # TODO: Add more metrics i.e. precision, recall, f1-score, confusion matrix, etc.
+
+    report = classification_report(y_true, y_pred, target_names=class_names, zero_division=0)
+    logging.info(f"Classification report:\n{report}")
+
+    cm = confusion_matrix(y_true, y_pred)
+    header = "".ljust(20) + "".join(name.ljust(15) for name in class_names)
+    logging.info(f"Confusion matrix (rows=true, cols=predicted):\n{header}")
+    for i, row in enumerate(cm):
+        row_str = class_names[i].ljust(20) + "".join(str(v).ljust(15) for v in row)
+        logging.info(row_str)
 
     return accuracy
     
 def main():
     parser = argparse.ArgumentParser(description="Convert network flows CSV to GNN tensors.")
     parser.add_argument("--csv-path", required=True, help="Path to the flows CSV file")
-    parser.add_argument("--model-path", required=True, help="Path to save the trained model (saved only if test accuracy > 0.95)")
+    parser.add_argument("--model-path", required=True, help="Path to save the trained model weights")
     args = parser.parse_args()
 
     logging.info(f"Loading flows from {args.csv_path}")
@@ -87,13 +96,15 @@ def main():
     logging.info("Converting test set to tensors")
     test_features, test_adj, test_labels, _ = flows_to_tensors(test_df, scaler=scaler)
     logging.info("Running inference on test set")
-    preds = predict(model, test_features, test_adj)
+    preds, _ = predict(model, test_features, test_adj)
     true = test_labels.numpy()
     accuracy = evaluate(true, preds)
     logging.info(f"Test accuracy: {accuracy:.4f}")
 
-    model.save(args.model_path)
-    logging.info(f"Saved model to {args.model_path}")
+    logging.info("Loading best checkpoint weights for final save")
+    model.load_weights("output/checkpoint.weights.h5")
+    model.save_weights(args.model_path)
+    logging.info(f"Saved model weights to {args.model_path}")
 
 if __name__ == "__main__":
     main()

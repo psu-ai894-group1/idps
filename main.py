@@ -14,34 +14,43 @@ from flows_to_tensors import flows_to_tensors
 from config import class_names
 
 import tensorflow as tf
-from model import predict, GCNClassifier, GCNLayer
+from model import predict, load_model_weights
+
+MIN_INFERENCE_BATCH = 50
 
 class FlowFileHandler(FileSystemEventHandler):
     def __init__(self, model, scaler):
         self.model = model
         self.scaler = scaler
         self.pos = 0
+        self.buffer = pd.DataFrame()
         logging.info("FlowFileHandler initialized")
 
     def process_flows(self, flows_df):
         logging.info("Processing flows: %d", len(flows_df))
         node_features, adjacency, _, _ = flows_to_tensors(flows_df, scaler=self.scaler)
-        preds = predict(self.model, node_features, adjacency)
-        
+        preds, confidences = predict(self.model, node_features, adjacency)
+
         for i in range(len(flows_df)):
             label = class_names[preds[i]]
-            logging.info("Row %d predicted label: %s", i, label)
+            logging.info("Row %d predicted label: %s (confidence: %.4f)", i, label, confidences[i])
 
     def on_modified(self, event):
         if event.src_path.endswith('.csv') and os.path.exists(event.src_path) and os.path.getsize(event.src_path) > 0:
             logging.info("New flows detected: %s", event.src_path)
             new_flows_df = pd.read_csv(event.src_path)
             new_flows_df = new_flows_df.iloc[self.pos:].copy()
-            self.pos += len(new_flows_df)    
+            self.pos += len(new_flows_df)
             logging.info("Flow count: %d", len(new_flows_df))
 
             if len(new_flows_df) > 0:
-               self.process_flows(new_flows_df)
+                self.buffer = pd.concat([self.buffer, new_flows_df], ignore_index=True)
+                if len(self.buffer) >= MIN_INFERENCE_BATCH:
+                    self.process_flows(self.buffer)
+                    self.buffer = pd.DataFrame()
+                else:
+                    logging.info("Buffered %d flows (need %d to run inference)",
+                                 len(self.buffer), MIN_INFERENCE_BATCH)
 
 def setup_logging():
     """
@@ -81,14 +90,12 @@ def main():
         output_file=os.path.join(output_dir, 'out.csv')
     )
 
-    logging.info(f"Loading model from {args.model_path}")
-    model = tf.keras.models.load_model(
-        args.model_path,
-        custom_objects={"GCNClassifier": GCNClassifier, "GCNLayer": GCNLayer},
-    )
     scaler_path = args.model_path + ".scaler.joblib"
     logging.info(f"Loading scaler from {scaler_path}")
     scaler = joblib.load(scaler_path)
+
+    logging.info(f"Loading model weights from {args.model_path}")
+    model = load_model_weights(args.model_path, num_features=scaler.n_features_in_)
 
     observer = Observer()
     observer.schedule(FlowFileHandler(model, scaler), path=output_dir, recursive=False)

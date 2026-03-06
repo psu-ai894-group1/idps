@@ -71,7 +71,7 @@ feature_names = [
     'active_std',           # Std dev of active time
 ]
 
-epochs = 64
+epochs = 10#48
 hidden_dim = 32
 num_hidden_layers = 2
 batch_size = 1024
@@ -83,11 +83,11 @@ weight_decay = 0.025
 dropout_rate = 0.2
 # None to disable gradient clipping
 clipnorm = 1.0
-early_stopping_patience = 10
+early_stopping_patience = 5
 class_reweighting = True
 # Minimum probability for an attack class to be predicted; below this, defaults to BENIGN.
 # 0.0 disables thresholding (pure argmax).
-attack_confidence_threshold = 0.5
+attack_confidence_threshold = 0.3
 # 'all' to use every available feature, or a list of feature names to use
 use_features = [
     'dst_port', 'flow_duration', 'tot_fwd_pkts', 'totlen_fwd_pkts', 'flow_byts_s',

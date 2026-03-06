@@ -71,6 +71,18 @@ class GCNClassifier(tf.keras.Model):
             h = dropout(h, training=training)
         return self.classifier(h)
 
+def load_model_weights(weights_path, num_features, num_classes=len(config.class_names)):
+    """
+    Create a GCNClassifier, build it with a dummy input, and load saved weights.
+    """
+    model = GCNClassifier(num_classes=num_classes)
+    dummy_x = tf.zeros((1, num_features))
+    dummy_adj = tf.SparseTensor(indices=[[0, 0]], values=[1.0], dense_shape=[1, 1])
+    model(dummy_x, dummy_adj)
+    model.load_weights(weights_path)
+    return model
+
+
 def _normalize_adjacency(adj):
     """
     Compute D^{-1/2} (A + I) D^{-1/2} using scipy sparse matrices.
@@ -310,7 +322,7 @@ def train(node_features, adjacency, labels,
         if monitored_loss < best_loss:
             best_loss = monitored_loss
             epochs_without_improvement = 0
-            model.save("output/checkpoint.keras")
+            model.save_weights("output/checkpoint.weights.h5")
             logging.info(f"Checkpoint saved (loss={monitored_loss:.4f})")
         else:
             epochs_without_improvement += 1
@@ -341,5 +353,8 @@ def predict(model, node_features, adjacency):
         attack_mask = tf.cast(attack_probs >= threshold, tf.float32)
         masked_attack = attack_probs * attack_mask
         masked_probs = tf.concat([probs[:, :1], masked_attack], axis=1)
-        return tf.argmax(masked_probs, axis=1, output_type=tf.int32).numpy()
-    return tf.argmax(probs, axis=1, output_type=tf.int32).numpy()
+        preds = tf.argmax(masked_probs, axis=1, output_type=tf.int32).numpy()
+    else:
+        preds = tf.argmax(probs, axis=1, output_type=tf.int32).numpy()
+    confidences = tf.reduce_max(probs, axis=1).numpy()
+    return preds, confidences
