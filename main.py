@@ -28,7 +28,7 @@ class FlowFileHandler(FileSystemEventHandler):
 
     def process_flows(self, flows_df):
         logging.info("Processing flows: %d", len(flows_df))
-        node_features, adjacency, _, _ = flows_to_tensors(flows_df, scaler=self.scaler)
+        node_features, adjacency, _, _ = flows_to_tensors(flows_df, scaler=self.scaler, log_transform=True)
         preds, confidences = predict(self.model, node_features, adjacency)
 
         for i in range(len(flows_df)):
@@ -45,6 +45,8 @@ class FlowFileHandler(FileSystemEventHandler):
 
             if len(new_flows_df) > 0:
                 self.buffer = pd.concat([self.buffer, new_flows_df], ignore_index=True)
+
+                # Do inference in batches
                 if len(self.buffer) >= MIN_INFERENCE_BATCH:
                     self.process_flows(self.buffer)
                     self.buffer = pd.DataFrame()
@@ -80,6 +82,12 @@ def main():
     parser.add_argument('-i', '--iface', default='eth0', help='Network interface to capture (default: eth0)')
     parser.add_argument("--model-path", required=True, help="Path to load the trained model from")
     args = parser.parse_args()
+
+    # Tune pyflowmeter timeouts to produce shorter flows similar to CICFlowMeter.
+    # Lower idle timeout so flows are finalized sooner.
+    import pyflowmeter.flow_session as _fs
+    _fs.EXPIRED_UPDATE = 5
+    _fs.FlowSession.GARBAGE_COLLECT_PACKETS = 100
 
     sniffer = None
     output_dir = './output/'

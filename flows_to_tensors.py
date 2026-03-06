@@ -6,7 +6,7 @@ from scipy.sparse import csr_matrix
 from config import class_names, feature_names, use_features
 import tensorflow as tf
 
-def flows_to_tensors(flows_df, scaler=None):
+def flows_to_tensors(flows_df, scaler=None, log_transform=False):
     """
     Convert flows from pyflowmeter format to tensors for use in GNNs.
 
@@ -15,6 +15,9 @@ def flows_to_tensors(flows_df, scaler=None):
 
     If scaler is None, a new StandardScaler is fitted on the data (training).
     If scaler is provided, it is used to transform the data without refitting (inference).
+    If log_transform is True, apply log1p to numeric features before scaling.
+    This is needed when using raw pyflowmeter output, since the training data
+    (CIC-IDS-2017 cleaned) is already log-transformed.
     """
     flow_count = len(flows_df)
     logging.info(f"Flow count: {flow_count}")
@@ -26,6 +29,9 @@ def flows_to_tensors(flows_df, scaler=None):
     logging.info(f"Available feature names: {available_feature_names}")
 
     node_features = flows_df[available_feature_names].values
+    if log_transform:
+        logging.info("Applying log1p transform to numeric features")
+        node_features = np.log1p(np.abs(node_features)) * np.sign(node_features)
     if scaler is None:
         scaler = StandardScaler()
         logging.info("Fitting and scaling node features")
