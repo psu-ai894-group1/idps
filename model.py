@@ -333,4 +333,13 @@ def predict(model, node_features, adjacency):
     adj_norm = _normalize_adjacency(adjacency)
     adj_tf = _scipy_to_tf_sparse(adj_norm)
     logits = model(node_features, adj_tf)
-    return tf.argmax(logits, axis=1, output_type=tf.int32).numpy()
+    probs = tf.nn.softmax(logits, axis=1)
+    threshold = getattr(config, 'attack_confidence_threshold', 0.0)
+    if threshold > 0.0:
+        # Zero out attack classes (index > 0) that are below threshold
+        attack_probs = probs[:, 1:]
+        attack_mask = tf.cast(attack_probs >= threshold, tf.float32)
+        masked_attack = attack_probs * attack_mask
+        masked_probs = tf.concat([probs[:, :1], masked_attack], axis=1)
+        return tf.argmax(masked_probs, axis=1, output_type=tf.int32).numpy()
+    return tf.argmax(probs, axis=1, output_type=tf.int32).numpy()
