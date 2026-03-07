@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import logging
 from collections import defaultdict
 from sklearn.preprocessing import StandardScaler
@@ -48,8 +49,11 @@ def flows_to_tensors(flows_df, scaler=None, log_transform=False):
 
     if "label" in flows_df.columns:
         name_to_idx = {name: i for i, name in enumerate(class_names)}
-        label_strs = flows_df["label"].values.astype(str)
-        labels = np.array([name_to_idx[s.strip()] for s in label_strs], dtype=np.int32)
+        label_series = flows_df["label"]
+        if isinstance(label_series, pd.DataFrame):
+            label_series = label_series.iloc[:, -1]
+        label_strs = label_series.astype(str).str.strip().to_numpy(dtype=str)
+        labels = np.array([name_to_idx[s] for s in label_strs], dtype=np.int32)
         labels = tf.constant(labels, dtype=tf.int32)
     else:
         labels = None
@@ -71,13 +75,16 @@ def create_flow_edges_sparse(flows_df, max_edges_per_group=50):
     https://pytorch-geometric.readthedocs.io/en/2.5.1/advanced/sparse_tensor.html
     """
     n = len(flows_df)
-    src_ip = flows_df["src_ip"].values
-    dst_ip = flows_df["dst_ip"].values
+    src_ip = flows_df["src_ip"].astype(str).to_numpy(dtype=str, na_value='nan')
+    dst_ip = flows_df["dst_ip"].astype(str).to_numpy(dtype=str, na_value='nan')
 
     # Group flows by canonical (sorted) IP pair so A->B and B->A are the same group
     pair_to_flows = defaultdict(list)
     for i in range(n):
-        pair = tuple(sorted([src_ip[i], dst_ip[i]]))
+        s, d = str(src_ip[i]), str(dst_ip[i])
+        if s == 'nan' or d == 'nan':
+            continue
+        pair = (min(s, d), max(s, d))
         pair_to_flows[pair].append(i)
 
     rows = []

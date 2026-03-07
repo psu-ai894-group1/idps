@@ -71,8 +71,8 @@ feature_names = [
     'active_std',           # Std dev of active time
 ]
 
-epochs = 48
-hidden_dim = 32
+epochs = 96
+hidden_dim = 64
 num_hidden_layers = 2
 batch_size = 1024
 max_neighbors = 25
@@ -90,7 +90,7 @@ class_reweighting = False
 attack_confidence_threshold = 0.3
 # Apply log1p transform to numeric features before scaling during training.
 # Enable when training data has raw (non-log-transformed) values.
-log_transform_training = True
+log_transform_training = False
 # 'all' to use every available feature, or a list of feature names to use
 use_features = [
     'dst_port', 'flow_duration', 'tot_fwd_pkts', 'totlen_fwd_pkts', 'flow_byts_s',
