@@ -5,6 +5,19 @@ import dotenv
 dotenv.load_dotenv()
 
 from pyflowmeter.sniffer import create_sniffer
+from pyflowmeter.features.flow_bytes import FlowBytes
+
+# Monkey-patch for pyflowmeter bug: ZeroDivisionError in get_bulk_rate
+# when a flow has no backward packets.
+_original_get_bulk_rate = FlowBytes.get_bulk_rate
+
+def _patched_get_bulk_rate(self, direction):
+    try:
+        return _original_get_bulk_rate(self, direction)
+    except ZeroDivisionError:
+        return 0
+
+FlowBytes.get_bulk_rate = _patched_get_bulk_rate
 import time
 import joblib
 import pandas as pd
