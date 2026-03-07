@@ -3,3 +3,4 @@ output/*
 *.keras
 *.csv
 *.log
+*.sh
