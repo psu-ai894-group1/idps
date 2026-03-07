@@ -87,7 +87,7 @@ early_stopping_patience = 5
 class_reweighting = False
 # Minimum probability for an attack class to be predicted; below this, defaults to BENIGN.
 # 0.0 disables thresholding (pure argmax).
-attack_confidence_threshold = 0.8
+attack_confidence_threshold = 0.9
 # Apply log1p transform to numeric features before scaling during training.
 # Enable when training data has raw (non-log-transformed) values.
 log_transform_training = False
