@@ -71,7 +71,7 @@ def main():
     logging.info(f"Train/xval/test split: {len(train_df)} / {len(xval_df)} / {len(test_df)} rows")
 
     logging.info("Converting training flows to tensors")
-    node_features, adjacency, labels, scaler = flows_to_tensors(train_df)
+    node_features, adjacency, labels, scaler = flows_to_tensors(train_df, log_transform=config.log_transform_training)
     logging.info("Flows converted to tensors")
 
     scaler_path = args.model_path + ".scaler.joblib"
@@ -85,7 +85,7 @@ def main():
     logging.info(f"Labels: {labels}")
 
     logging.info("Converting cross-validation set to tensors")
-    xval_features, xval_adj, xval_labels, _ = flows_to_tensors(xval_df, scaler=scaler)
+    xval_features, xval_adj, xval_labels, _ = flows_to_tensors(xval_df, scaler=scaler, log_transform=config.log_transform_training)
 
     logging.info("Training model")
     model = train(node_features, adjacency, labels,
@@ -94,7 +94,7 @@ def main():
 
     # Inference on test set — reuse the training scaler
     logging.info("Converting test set to tensors")
-    test_features, test_adj, test_labels, _ = flows_to_tensors(test_df, scaler=scaler)
+    test_features, test_adj, test_labels, _ = flows_to_tensors(test_df, scaler=scaler, log_transform=config.log_transform_training)
     logging.info("Running inference on test set")
     preds, _ = predict(model, test_features, test_adj)
     true = test_labels.numpy()

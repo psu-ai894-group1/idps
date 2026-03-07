@@ -88,6 +88,9 @@ class_reweighting = False
 # Minimum probability for an attack class to be predicted; below this, defaults to BENIGN.
 # 0.0 disables thresholding (pure argmax).
 attack_confidence_threshold = 0.3
+# Apply log1p transform to numeric features before scaling during training.
+# Enable when training data has raw (non-log-transformed) values.
+log_transform_training = True
 # 'all' to use every available feature, or a list of feature names to use
 use_features = [
     'dst_port', 'flow_duration', 'tot_fwd_pkts', 'totlen_fwd_pkts', 'flow_byts_s',
