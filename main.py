@@ -32,11 +32,13 @@ from model import predict, load_model_weights
 MIN_INFERENCE_BATCH = 50
 
 class FlowFileHandler(FileSystemEventHandler):
-    def __init__(self, model, scaler):
+    def __init__(self, model, scaler, trace_path=None):
         self.model = model
         self.scaler = scaler
         self.pos = 0
         self.buffer = pd.DataFrame()
+        self.trace_path = trace_path
+        self.trace_header_written = False
         logging.info("FlowFileHandler initialized")
 
     def process_flows(self, flows_df):
@@ -47,6 +49,23 @@ class FlowFileHandler(FileSystemEventHandler):
         for i in range(len(flows_df)):
             label = class_names[preds[i]]
             logging.info("Row %d predicted label: %s (confidence: %.4f)", i, label, confidences[i])
+
+        if self.trace_path:
+            self._write_trace(node_features, preds, confidences)
+
+    def _write_trace(self, node_features, preds, confidences):
+        from config import feature_names, use_features
+        available = [f for f in feature_names if f in use_features]
+        features_np = node_features.numpy() if hasattr(node_features, 'numpy') else node_features
+        trace_df = pd.DataFrame(features_np, columns=available)
+        trace_df['predicted_label'] = [class_names[p] for p in preds]
+        trace_df['confidence'] = confidences
+
+        write_header = not self.trace_header_written and not (
+            os.path.exists(self.trace_path) and os.path.getsize(self.trace_path) > 0
+        )
+        trace_df.to_csv(self.trace_path, mode='a', index=False, header=write_header)
+        self.trace_header_written = True
 
     def on_modified(self, event):
         if event.src_path.endswith('.csv') and os.path.exists(event.src_path) and os.path.getsize(event.src_path) > 0:
@@ -94,6 +113,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--iface', default='eth0', help='Network interface to capture (default: eth0)')
     parser.add_argument("--model-path", required=True, help="Path to load the trained model from")
+    parser.add_argument("--append-csv", action="store_true", help="Append to out.csv instead of overwriting on each garbage collect")
+    parser.add_argument("--trace-path", default=None, help="Path to log post-processed features, predicted labels, and confidences")
     args = parser.parse_args()
 
     # Tune pyflowmeter timeouts to produce shorter flows similar to CICFlowMeter.
@@ -101,6 +122,20 @@ def main():
     import pyflowmeter.flow_session as _fs
     _fs.EXPIRED_UPDATE = 5
     _fs.FlowSession.GARBAGE_COLLECT_PACKETS = 100
+
+    if args.append_csv:
+        # Monkey-patch pyflowmeter to append to CSV instead of overwriting.
+        _original_init = _fs.FlowSession.__init__
+
+        def _patched_init(self, *a, **kw):
+            _original_init(self, *a, **kw)
+            if self.to_csv and os.path.exists(self.output_file) and os.path.getsize(self.output_file) > 0:
+                import csv
+                output = open(self.output_file, "a", newline="")
+                self.csv_writer = csv.writer(output)
+                self.csv_line = 1  # skip writing header
+
+        _fs.FlowSession.__init__ = _patched_init
 
     sniffer = None
     output_dir = './output/'
@@ -119,7 +154,7 @@ def main():
     model = load_model_weights(args.model_path, num_features=scaler.n_features_in_)
 
     observer = Observer()
-    observer.schedule(FlowFileHandler(model, scaler), path=output_dir, recursive=False)
+    observer.schedule(FlowFileHandler(model, scaler, trace_path=args.trace_path), path=output_dir, recursive=False)
     observer.start()
     sniffer.start()
 
