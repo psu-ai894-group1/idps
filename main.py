@@ -28,6 +28,7 @@ from config import class_names
 
 import tensorflow as tf
 from model import predict, load_model_weights
+from db import get_connection, save_flows_and_inferences, set_data_path, get_db_path
 
 MIN_INFERENCE_BATCH = 50
 
@@ -49,6 +50,8 @@ class FlowFileHandler(FileSystemEventHandler):
         for i in range(len(flows_df)):
             label = class_names[preds[i]]
             logging.info("Row %d predicted label: %s (confidence: %.4f)", i, label, confidences[i])
+
+        save_flows_and_inferences(flows_df, preds, confidences, class_names)
 
         if self.trace_path:
             self._write_trace(node_features, preds, confidences, flows_df)
@@ -121,6 +124,7 @@ def main():
     parser.add_argument("--model-path", required=True, help="Path to load the trained model from")
     parser.add_argument("--append-csv", action="store_true", help="Append to out.csv instead of overwriting on each garbage collect")
     parser.add_argument("--trace-path", default=None, help="Path to log post-processed features, predicted labels, and confidences")
+    parser.add_argument("--data-path", default=None, help="Directory to store the SQLite database (default: ./data)")
     args = parser.parse_args()
 
     # Tune pyflowmeter timeouts to produce shorter flows similar to CICFlowMeter.
@@ -159,6 +163,12 @@ def main():
     logging.info(f"Loading model weights from {args.model_path}")
     model = load_model_weights(args.model_path, num_features=scaler.n_features_in_)
 
+    if args.data_path:
+        set_data_path(args.data_path)
+    # Ensure database and tables exist before starting
+    get_connection().close()
+    logging.info(f"Database ready at {get_db_path()}")
+
     observer = Observer()
     observer.schedule(FlowFileHandler(model, scaler, trace_path=args.trace_path), path=output_dir, recursive=False)
     observer.start()
@@ -170,7 +180,7 @@ def main():
     except KeyboardInterrupt:
         observer.stop()
         sniffer.stop()
-    
+
     observer.join()
 
 if __name__ == "__main__":
