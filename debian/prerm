@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+systemctl stop idps.service || true
+systemctl disable idps.service || true

@@ -1,0 +1,20 @@
+[Unit]
+Description=Intrusion Detection and Prevention System
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/idps
+ExecStart=/opt/idps/venv/bin/python3 /opt/idps/main.py \
+    --model-path /var/idps/model \
+    --data-path /var/idps/data \
+    -i br0
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

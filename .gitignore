@@ -4,4 +4,4 @@ data/*
 *.keras
 *.csv
 *.log
-*.sh
+*.deb

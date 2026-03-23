@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+INSTALL_DIR=/opt/idps
+VENV_DIR=$INSTALL_DIR/venv
+DATA_DIR=/var/idps/data
+MODEL_DIR=/var/idps/model
+
+# Create runtime directories
+mkdir -p "$DATA_DIR"
+mkdir -p "$MODEL_DIR"
+
+# Create virtual environment and install dependencies
+python3 -m venv "$VENV_DIR"
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
+
+# Reload systemd and enable the service
+systemctl daemon-reload
+systemctl enable idps.service
+
+echo "=========================================="
+echo " idps installed successfully."
+echo ""
+echo " Place your model files in: $MODEL_DIR"
+echo "   e.g. /var/idps/model.weights.h5"
+echo "        /var/idps/model.weights.h5.scaler.joblib"
+echo ""
+echo " Start the service with:"
+echo "   systemctl start idps"
+echo "=========================================="
