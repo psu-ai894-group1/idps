@@ -8,7 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/idps
 ExecStart=/opt/idps/venv/bin/python3 /opt/idps/main.py \
-    --model-path /var/idps/model \
+    --model-path /var/idps/models/idps.weights.h5 \
     --data-path /var/idps/data \
     -i br0
 Restart=on-failure

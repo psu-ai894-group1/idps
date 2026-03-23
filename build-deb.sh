@@ -12,7 +12,7 @@ echo "Building $PACKAGE $VERSION ..."
 # Create directory structure
 mkdir -p "$PKG_ROOT/DEBIAN"
 mkdir -p "$PKG_ROOT/opt/idps/util"
-mkdir -p "$PKG_ROOT/var/idps"
+mkdir -p "$PKG_ROOT/var/idps/models"
 mkdir -p "$PKG_ROOT/lib/systemd/system"
 
 # Copy DEBIAN control files
@@ -35,8 +35,8 @@ cp "$SCRIPT_DIR/requirements.txt"    "$PKG_ROOT/opt/idps/"
 cp "$SCRIPT_DIR/util/"*.py "$PKG_ROOT/opt/idps/util/"
 
 # Copy model and scaler
-cp "$SCRIPT_DIR/models/idps.weights.h5"               "$PKG_ROOT/var/idps/model"
-cp "$SCRIPT_DIR/models/idps.weights.h5.scaler.joblib"  "$PKG_ROOT/var/idps/model.scaler.joblib"
+cp "$SCRIPT_DIR/models/idps.weights.h5"                "$PKG_ROOT/var/idps/models/"
+cp "$SCRIPT_DIR/models/idps.weights.h5.scaler.joblib"  "$PKG_ROOT/var/idps/models/"
 
 # Copy systemd service
 cp "$SCRIPT_DIR/idps.service" "$PKG_ROOT/lib/systemd/system/"

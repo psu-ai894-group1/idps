@@ -3,8 +3,8 @@ Version: 1.0.0
 Section: net
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.11), python3-venv, python3-pip
-Maintainer: AI894 <ai894@localhost>
+Depends: python3 (>= 3.11), python3-venv, python3-pip, curl
+Maintainer: Chris Umbel <czu5008@psu.edu>
 Description: Intrusion Detection and Prevention System
  GNN-based network intrusion detection system that captures
  network flows and classifies them in real time.
