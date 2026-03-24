@@ -1,3 +1,4 @@
+import math
 import os
 import sqlite3
 import logging
@@ -118,6 +119,8 @@ def save_flows_and_inferences(flows_df, preds, confidences, class_names):
 
             label = class_names[preds[i]]
             conf = float(confidences[i])
+            if math.isnan(conf) or math.isinf(conf):
+                conf = 0.0
             cursor.execute(insert_inf_sql, (flow_id, now, label, conf))
 
         conn.commit()

@@ -36,7 +36,8 @@ class FlowFileHandler(FileSystemEventHandler):
     def __init__(self, model, scaler, trace_path=None):
         self.model = model
         self.scaler = scaler
-        self.pos = 0
+        self.byte_offset = 0
+        self.header = None
         self.buffer = pd.DataFrame()
         self.trace_path = trace_path
         self.trace_header_written = False
@@ -76,15 +77,31 @@ class FlowFileHandler(FileSystemEventHandler):
         trace_df.to_csv(self.trace_path, mode='a', index=False, header=write_header)
         self.trace_header_written = True
 
+    def _read_new_rows(self, path):
+        """Read only the bytes appended since the last call."""
+        with open(path, 'r') as f:
+            # On first call, read and store the header line
+            if self.header is None:
+                self.header = f.readline()
+                self.byte_offset = f.tell()
+
+            f.seek(self.byte_offset)
+            new_data = f.read()
+            if not new_data or not new_data.strip():
+                return pd.DataFrame()
+
+            self.byte_offset = f.tell()
+
+        from io import StringIO
+        return pd.read_csv(StringIO(self.header + new_data))
+
     def on_modified(self, event):
         if event.src_path.endswith('.csv') and os.path.exists(event.src_path) and os.path.getsize(event.src_path) > 0:
-            logging.info("New flows detected: %s", event.src_path)
-            new_flows_df = pd.read_csv(event.src_path)
-            new_flows_df = new_flows_df.iloc[self.pos:].copy()
-            self.pos += len(new_flows_df)
-            logging.info("Flow count: %d", len(new_flows_df))
+            new_flows_df = self._read_new_rows(event.src_path)
 
             if len(new_flows_df) > 0:
+                logging.info("New flows detected: %s (%d rows)", event.src_path, len(new_flows_df))
+
                 self.buffer = pd.concat([self.buffer, new_flows_df], ignore_index=True)
 
                 # Do inference in batches
@@ -93,7 +110,7 @@ class FlowFileHandler(FileSystemEventHandler):
                     self.buffer = pd.DataFrame()
                 else:
                     logging.info("Buffered %d flows (need %d to run inference)",
-                                 len(self.buffer), MIN_INFERENCE_BATCH)
+                                len(self.buffer), MIN_INFERENCE_BATCH)
 
 def setup_logging():
     """
@@ -148,12 +165,12 @@ def main():
         _fs.FlowSession.__init__ = _patched_init
 
     sniffer = None
-    output_dir = './output/'
+    flows_csv = '/tmp/idps_flows.csv'
 
     sniffer = create_sniffer(
         input_interface=args.iface,
         to_csv=True,
-        output_file=os.path.join(output_dir, 'out.csv')
+        output_file=flows_csv
     )
 
     scaler_path = args.model_path + ".scaler.joblib"
@@ -170,7 +187,7 @@ def main():
     logging.info(f"Database ready at {get_db_path()}")
 
     observer = Observer()
-    observer.schedule(FlowFileHandler(model, scaler, trace_path=args.trace_path), path=output_dir, recursive=False)
+    observer.schedule(FlowFileHandler(model, scaler, trace_path=args.trace_path), path='/tmp/', recursive=False)
     observer.start()
     sniffer.start()
 
