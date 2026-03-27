@@ -1,5 +1,5 @@
 Name:           idps
-Version:        1.0.0
+Version:        %{pkg_version}
 Release:        1%{?dist}
 Summary:        Intrusion Detection and Prevention System
 License:        Proprietary

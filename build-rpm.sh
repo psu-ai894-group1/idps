@@ -2,8 +2,8 @@
 set -e
 
 PACKAGE=idps
-VERSION=1.0.0
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERSION="$(cat "$SCRIPT_DIR/VERSION")"
 BUILD_DIR="$(mktemp -d)"
 
 echo "Building $PACKAGE $VERSION RPM ..."
@@ -30,7 +30,7 @@ cp "$SCRIPT_DIR/idps.service"        "$BUILD_DIR/SOURCES/"
 cp "$SCRIPT_DIR/rpm/idps.spec" "$BUILD_DIR/SPECS/"
 
 # Build the RPM
-rpmbuild --define "_topdir $BUILD_DIR" -bb "$BUILD_DIR/SPECS/idps.spec"
+rpmbuild --define "_topdir $BUILD_DIR" --define "pkg_version $VERSION" -bb "$BUILD_DIR/SPECS/idps.spec"
 
 # Copy the built RPM to the script directory
 cp "$BUILD_DIR/RPMS/noarch/"*.rpm "$SCRIPT_DIR/"

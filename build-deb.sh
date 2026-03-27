@@ -2,10 +2,10 @@
 set -e
 
 PACKAGE=idps
-VERSION=1.0.0
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERSION="$(cat "$SCRIPT_DIR/VERSION")"
 BUILD_DIR="$(mktemp -d)"
 PKG_ROOT="$BUILD_DIR/${PACKAGE}_${VERSION}"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "Building $PACKAGE $VERSION ..."
 
@@ -15,8 +15,8 @@ mkdir -p "$PKG_ROOT/opt/idps/util"
 mkdir -p "$PKG_ROOT/var/idps/models"
 mkdir -p "$PKG_ROOT/lib/systemd/system"
 
-# Copy DEBIAN control files
-cp "$SCRIPT_DIR/debian/control"   "$PKG_ROOT/DEBIAN/control"
+# Copy DEBIAN control files, injecting version
+sed "s/^Version:.*/Version: $VERSION/" "$SCRIPT_DIR/debian/control" > "$PKG_ROOT/DEBIAN/control"
 cp "$SCRIPT_DIR/debian/postinst"  "$PKG_ROOT/DEBIAN/postinst"
 cp "$SCRIPT_DIR/debian/prerm"     "$PKG_ROOT/DEBIAN/prerm"
 cp "$SCRIPT_DIR/debian/postrm"    "$PKG_ROOT/DEBIAN/postrm"
