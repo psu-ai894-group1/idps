@@ -97,6 +97,15 @@ _FLOW_COLUMNS = [
 ]
 
 
+def _to_python(val):
+    """Convert numpy/pandas types to native Python types for sqlite3."""
+    if val is None or (isinstance(val, float) and math.isnan(val)):
+        return None
+    if hasattr(val, 'item'):
+        return val.item()
+    return val
+
+
 def save_flows_and_inferences(flows_df, preds, confidences, class_names):
     """Insert captured flows and their inference results into the database."""
     conn = get_connection()
@@ -113,7 +122,7 @@ def save_flows_and_inferences(flows_df, preds, confidences, class_names):
         insert_inf_sql = "INSERT INTO inferences (flow_id, inferred_at, predicted_label, confidence) VALUES (?, ?, ?, ?)"
 
         for i in range(len(flows_df)):
-            row_values = [now] + [flows_df.iloc[i].get(c) for c in available]
+            row_values = [now] + [_to_python(flows_df.iloc[i].get(c)) for c in available]
             cursor.execute(insert_flow_sql, row_values)
             flow_id = cursor.lastrowid
 
