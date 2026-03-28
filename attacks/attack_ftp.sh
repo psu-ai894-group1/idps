@@ -1,0 +1,1 @@
+patator ftp_login host=$1 user=FILE0 0=/usr/share/seclists/Usernames/top-usernames-shortlist.txt password=FILE1 1=/usr/share/seclists/Passwords/Most-Popular-Letter-Passes.txt -x ignore:mesg='Login incorrect.'
