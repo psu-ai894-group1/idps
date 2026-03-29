@@ -302,7 +302,7 @@ def run_inference_on_df(flows_df):
     from config import class_names
 
     model, scaler = load_model_and_scaler()
-    node_features, adjacency, labels, _ = flows_to_tensors(flows_df, scaler=scaler)
+    node_features, adjacency, labels, _ = flows_to_tensors(flows_df, scaler=scaler, log_transform=True)
     preds, confidences = predict(model, node_features, adjacency)
 
     adj_tf  = _scipy_to_tf_sparse(_normalize_adjacency(adjacency))

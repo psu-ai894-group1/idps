@@ -8,3 +8,4 @@ tensorflow[and_cuda]==2.20.0
 scapy
 pyflowmeter
 netifaces
+streamlit

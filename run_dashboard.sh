@@ -1,0 +1,1 @@
+ROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python streamlit run dashboard.py
