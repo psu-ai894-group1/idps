@@ -33,6 +33,7 @@ def _patched_get_bulk_rate(self, direction):
         return 0
 
 FlowBytes.get_bulk_rate = _patched_get_bulk_rate
+import netifaces
 import time
 import joblib
 import pandas as pd
@@ -149,15 +150,29 @@ def setup_logging():
     stream_handler.setFormatter(logging.Formatter(fmt, datefmt=date_fmt))
     root.addHandler(stream_handler)
 
+def find_lan_interface():
+    """Return the first interface with a private/LAN IPv4 address, or 'eth0'."""
+    import ipaddress
+    for iface in netifaces.interfaces():
+        addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET, [])
+        for addr in addrs:
+            if ipaddress.ip_address(addr['addr']).is_private and not addr['addr'].startswith('127.'):
+                return iface
+    return 'eth0'
+
 def main():
     setup_logging()
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--iface', default='eth0', help='Network interface to capture (default: eth0)')
+    parser.add_argument('-i', '--iface', default=None, help='Network interface to capture (auto-detects LAN interface if omitted)')
     parser.add_argument("--model-path", required=True, help="Path to load the trained model from")
     parser.add_argument("--append-csv", action="store_true", help="Append to out.csv instead of overwriting on each garbage collect")
     parser.add_argument("--trace-path", default=None, help="Path to log post-processed features, predicted labels, and confidences")
     parser.add_argument("--data-path", default=None, help="Directory to store the SQLite database (default: ./data)")
     args = parser.parse_args()
+
+    if args.iface is None:
+        args.iface = find_lan_interface()
+        logging.info(f"Auto-detected LAN interface: {args.iface}")
 
     # Tune pyflowmeter timeouts to produce shorter flows similar to CICFlowMeter.
     # Lower idle timeout so flows are finalized sooner.

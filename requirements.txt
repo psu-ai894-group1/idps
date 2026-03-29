@@ -7,3 +7,4 @@ scikit-learn==1.8.0
 tensorflow[and_cuda]==2.20.0
 scapy
 pyflowmeter
+netifaces
