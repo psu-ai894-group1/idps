@@ -108,3 +108,18 @@ The `.keras` model output (which also automatically persists the feature scaler 
 ```bash
 python3 train.py --csv-path labelled_training_data.csv --model-path ./models/idps_model.keras
 ```
+
+---
+
+# Evaluation
+
+The `test.py` script allows for the offline evaluation of a trained Graph Neural Network model against labeled datasets. This is essential for verifying model performance on hold-out test data or newly captured and labeled flows.
+
+The script performs the following:
+* **Feature Normalization:** Automatically loads the corresponding `.joblib` scaler to ensure features are scaled identically to the training phase.
+* **Graph Construction:** Reconstructs the communication graph from the provided CSV.
+* **Metric Reporting:** Outputs a comprehensive suite of metrics including overall Accuracy, a detailed Confusion Matrix, and a Classification Report (Precision, Recall, and F1-score for each traffic class).
+
+```bash
+python3 test.py --model-path ./models/idps.weights.h5 --csv-path ./data/test_data.csv
+```
