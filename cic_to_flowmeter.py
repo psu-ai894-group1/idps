@@ -91,6 +91,7 @@ CIC_TO_PYFLOWMETER_COLUMNS = {
 }
 
 
+# Convert CIC-IDS-2017 columns to pyflowmeter columns
 def cic_to_pyflowmeter_columns(df):
     df = df.copy()
     df.columns = df.columns.str.strip()

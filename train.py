@@ -40,8 +40,8 @@ if gpus:
         logging.error("Exception setting up GPUs")
         logging.error(e)
 
+# show final classification report and confusion matrix after training
 def evaluate(y_true, y_pred):
-    # TODO: Add more metrics i.e. precision, recall, f1-score, etc.
     accuracy = accuracy_score(y_true, y_pred)
     logging.info(f"Test accuracy: {accuracy:.4f}")
 
@@ -69,20 +69,24 @@ def main():
     flows_df = cic_to_pyflowmeter_columns(flows_df)
     logging.info(f"Loaded {len(flows_df)} rows from {args.csv_path}")
 
+    # split data into train, cross-validation, and test sets
     train_df, test_df = train_test_split(flows_df, test_size=config.test_size, shuffle=True, random_state=42)
     # Split remaining data into train and cross-validation sets.
     xval_fraction = config.xval_size / (1 - config.test_size)
     train_df, xval_df = train_test_split(train_df, test_size=xval_fraction, shuffle=True, random_state=42)
     logging.info(f"Train/xval/test split: {len(train_df)} / {len(xval_df)} / {len(test_df)} rows")
 
+    # Convert training flows to tensors
     logging.info("Converting training flows to tensors")
     node_features, adjacency, labels, scaler = flows_to_tensors(train_df, log_transform=config.log_transform_training)
     logging.info("Flows converted to tensors")
 
+    # Save the scaler to a file. this will be needed for inference.
     scaler_path = args.model_path + ".scaler.joblib"
     joblib.dump(scaler, scaler_path)
     logging.info(f"Saved scaler to {scaler_path}")
 
+    # Log the shapes and dtypes of the tensors
     logging.info(f"Node features shape: {node_features.shape}")
     logging.info(f"Node features dtype: {node_features.dtype}")
     logging.info(f"Adjacency shape: {adjacency.shape}")
@@ -92,12 +96,13 @@ def main():
     logging.info("Converting cross-validation set to tensors")
     xval_features, xval_adj, xval_labels, _ = flows_to_tensors(xval_df, scaler=scaler, log_transform=config.log_transform_training)
 
+    # Train the model
     logging.info("Training model")
     model = train(node_features, adjacency, labels,
                   xval_features=xval_features, xval_adj=xval_adj, xval_labels=xval_labels)
     logging.info("Model trained")
 
-    # Inference on test set — reuse the training scaler
+    # Inference on test set - reuse the training scaler
     logging.info("Converting test set to tensors")
     test_features, test_adj, test_labels, _ = flows_to_tensors(test_df, scaler=scaler, log_transform=config.log_transform_training)
     logging.info("Running inference on test set")

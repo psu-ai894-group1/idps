@@ -50,7 +50,6 @@ if gpus:
         logging.error("Exception setting up GPUs")
         logging.error(e)
 
-
 def print_metrics(true, preds, probs):
     acc = accuracy_score(true, preds)
     bal = balanced_accuracy_score(true, preds)
@@ -71,7 +70,6 @@ def print_metrics(true, preds, probs):
     for i, row in enumerate(cm):
         row_str = class_names[i].ljust(20) + "".join(str(v).ljust(15) for v in row)
         logging.info(row_str)
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -116,7 +114,6 @@ def main():
         return
 
     print_metrics(labels.numpy(), preds, probs)
-
 
 if __name__ == "__main__":
     main()

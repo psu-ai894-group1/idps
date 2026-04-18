@@ -18,11 +18,10 @@ def set_data_path(path):
     global _db_dir
     _db_dir = path
 
-
 def get_db_path():
     return os.path.join(_db_dir, 'idps.db')
 
-
+# Get a connection to the database
 def get_connection():
     os.makedirs(_db_dir, exist_ok=True)
     conn = sqlite3.connect(get_db_path())
@@ -30,7 +29,7 @@ def get_connection():
     _ensure_tables(conn)
     return conn
 
-
+# Ensure the tables exist
 def _ensure_tables(conn):
     conn.execute("""
         CREATE TABLE IF NOT EXISTS flows (
@@ -102,6 +101,7 @@ _FLOW_COLUMNS = [
 ]
 
 
+# Convert numpy/pandas types to native Python types for sqlite3
 def _to_python(val):
     """Convert numpy/pandas types to native Python types for sqlite3."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
@@ -110,7 +110,7 @@ def _to_python(val):
         return val.item()
     return val
 
-
+# Save flows and inferences to the database
 def save_flows_and_inferences(flows_df, preds, confidences, class_names):
     """Insert captured flows and their inference results into the database."""
     conn = get_connection()

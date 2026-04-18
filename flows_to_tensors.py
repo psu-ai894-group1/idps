@@ -34,10 +34,13 @@ def flows_to_tensors(flows_df, scaler=None, log_transform=False):
                                    if f in use_features]
     logging.info(f"Available feature names: {available_feature_names}")
 
+    # Convert features to numpy array and apply log1p transform if needed
     node_features = flows_df[available_feature_names].values
     if log_transform:
         logging.info("Applying log1p transform to numeric features")
         node_features = np.log1p(np.abs(node_features)) * np.sign(node_features)
+
+    # Fit or transform the node features
     if scaler is None:
         scaler = StandardScaler()
         logging.info("Fitting and scaling node features")
@@ -45,13 +48,16 @@ def flows_to_tensors(flows_df, scaler=None, log_transform=False):
     else:
         logging.info("Scaling node features with pre-fitted scaler")
         node_features = scaler.transform(node_features)
+
     logging.info("Converting node features to TensorFlow constant")
     node_features = tf.constant(node_features, dtype=tf.float32)
 
+    # Create the flow edges
     logging.info("Creating flow edges")
     adjacency = create_flow_edges_sparse(flows_df)
     logging.info("Flows converted to tensors")
 
+    # Create the labels
     if "label" in flows_df.columns:
         name_to_idx = {name: i for i, name in enumerate(class_names)}
         label_series = flows_df["label"]
@@ -95,6 +101,7 @@ def create_flow_edges_sparse(flows_df, max_edges_per_group=50):
     rows = []
     cols = []
 
+    # For each flow group, create the edges
     for flow_list in pair_to_flows.values():
         flow_list = sorted(set(flow_list))
         k = len(flow_list)

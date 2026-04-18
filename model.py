@@ -54,9 +54,12 @@ class GCNClassifier(tf.keras.Model):
         self.num_hidden_layers = num_hidden_layers
         self.gcn_layers = []
         self.dropout_layers = []
+
+        # Add the GCN and dropout layers
         for _ in range(num_hidden_layers):
             self.gcn_layers.append(GCNLayer(hidden_dim))
             self.dropout_layers.append(tf.keras.layers.Dropout(dropout_rate))
+
         self.classifier = tf.keras.layers.Dense(num_classes)
 
     def get_config(self):
@@ -86,7 +89,6 @@ def load_model_weights(weights_path, num_features, num_classes=len(config.class_
     model(dummy_x, dummy_adj)
     model.load_weights(weights_path)
     return model
-
 
 def _normalize_adjacency(adj):
     """
