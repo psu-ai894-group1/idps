@@ -73,7 +73,9 @@ pip install -r requirements.txt
 
 ---
 
-# Running
+# Running as a service
+
+When running as a service, the agent auto-detects a LAN interface, continuously sniffs live network traffic, and extracts flow features using pyflowmeter. Flows are buffered and classified in batches by the pre-trained GCN, and both the raw flow features and the resulting inferences (predicted label and confidence) are persisted to the SQLite database under the configured data path. The service runs as `root` out of `/opt/idps`, logs to the systemd journal, and restarts automatically on failure. Stored results can then be reviewed at any time through the dashboard.
 
 ## Service Management
 
@@ -98,6 +100,24 @@ The system includes an interactive web dashboard built with Streamlit. You can l
 ```
 
 Once executed, the UI will start a local web server (typically accessible at `http://localhost:8501`). Through the browser interface, you can navigate between **Import Test Data** (Batch Mode) and **Live Detection** (Sniffing Mode).
+
+---
+
+# Installing Dependencies
+
+Training and command-line evaluation are run directly from the source tree and require the Python dependencies to be installed. From the project root:
+
+```bash
+pip install -r requirements.txt
+```
+
+Using a virtual environment or anaconda is recommended to avoid conflicts with system-wide packages. Using anaconda is an exercise left to the reader, but to use a virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
 ---
 
@@ -137,3 +157,25 @@ Evaluation can also be performed interactively through the Streamlit dashboard w
 3. In the **Dataset File** card, drop or select a CIC-IDS-2017 formatted CSV containing labeled flows.
 4. Click **▶ Run Model** to classify every flow in the uploaded file against the trained model.
 5. When processing completes, the results screen displays the full evaluation output, including overall Accuracy, the Confusion Matrix, and the per-class Classification Report (Precision, Recall, F1-score).
+
+---
+
+# Open Source Dependencies
+
+This project is built on top of the following open-source packages:
+
+* **[TensorFlow](https://www.tensorflow.org/)** — Deep learning framework used to implement and train the Graph Convolutional Network (GCN) model.
+* **[scikit-learn](https://scikit-learn.org/)** — Provides the `StandardScaler` for feature normalization and evaluation utilities such as confusion matrices and classification reports.
+* **[pandas](https://pandas.pydata.org/)** — Tabular data handling for loading CSV datasets, buffering live flows, and shaping inputs for inference.
+* **[NumPy](https://numpy.org/)** — Underlying numerical array library used across feature processing and graph tensor construction.
+* **[SciPy](https://scipy.org/)** — Supporting scientific computing routines used in graph and matrix operations.
+* **[joblib](https://joblib.readthedocs.io/)** — Serialization of the fitted feature scaler alongside trained model weights.
+* **[pyflowmeter](https://pypi.org/project/pyflowmeter/)** — Extracts CIC-IDS-style flow features from live or captured network traffic.
+* **[scapy](https://scapy.net/)** — Low-level packet capture and parsing used by pyflowmeter under the hood.
+* **[netifaces](https://pypi.org/project/netifaces/)** — Enumerates network interfaces so the agent can auto-detect the LAN interface to sniff.
+* **[watchdog](https://python-watchdog.readthedocs.io/)** — Monitors the pyflowmeter CSV output for newly written flows and triggers batched inference.
+* **[Streamlit](https://streamlit.io/)** — Powers the interactive web dashboard for batch evaluation and live detection.
+* **[Matplotlib](https://matplotlib.org/)** — Generates plots such as ROC curves and confusion matrix visualizations.
+* **[JupyterLab](https://jupyter.org/)** — Notebook environment used during model development and experimentation.
+* **[python-dotenv](https://pypi.org/project/python-dotenv/)** — Loads configuration values from `.env` files at startup.
+* **SQLite** (via Python's standard library `sqlite3`) — Local database backing the persisted flows and inference records shown in the dashboard.
