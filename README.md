@@ -115,6 +115,8 @@ python3 train.py --csv-path labelled_training_data.csv --model-path ./models/idp
 
 # Evaluation
 
+## Evaluating from the command line
+
 The `test.py` script allows for the offline evaluation of a trained Graph Neural Network model against labeled datasets. This is essential for verifying model performance on hold-out test data or newly captured and labeled flows.
 
 The script performs the following:
@@ -125,3 +127,13 @@ The script performs the following:
 ```bash
 python3 test.py --model-path ./models/idps.weights.h5 --csv-path ./data/test_data.csv
 ```
+
+## Evaluating in the UI
+
+Evaluation can also be performed interactively through the Streamlit dashboard without needing to invoke `test.py` directly.
+
+1. Launch the dashboard with `./run_dashboard.sh` and open `http://localhost:8501` in a browser.
+2. From the **Home** screen, click **Import Test Data** to enter Batch Mode.
+3. In the **Dataset File** card, drop or select a CIC-IDS-2017 formatted CSV containing labeled flows.
+4. Click **▶ Run Model** to classify every flow in the uploaded file against the trained model.
+5. When processing completes, the results screen displays the full evaluation output, including overall Accuracy, the Confusion Matrix, and the per-class Classification Report (Precision, Recall, F1-score).
