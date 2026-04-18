@@ -1,3 +1,8 @@
+"""
+AI-894
+This file evaluates a trained GCN model on a test dataset. It reports performance metrics such as accuracy and the confusion matrix.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 import argparse
 import logging
 import os

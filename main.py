@@ -1,3 +1,8 @@
+"""
+AI-894
+This file is the main entry point for the real-time intrusion detection system. It captures traffic, extracts features, and runs inference continuously.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 import argparse
 import logging
 import os

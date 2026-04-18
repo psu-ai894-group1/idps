@@ -1,3 +1,8 @@
+"""
+AI-894
+This file contains configuration parameters and hyperparameters for the IDPS model. It defines network structure, training options, and class mappings.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 class_names = [
     'BENIGN', 
     #'DoS Hulk', 

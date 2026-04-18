@@ -1,4 +1,8 @@
 """
+AI-894
+This file provides a Streamlit-based web dashboard for interacting with the intrusion detection system. It allows users to run batch tests or perform live traffic detection.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+
 IDPS — Intrusion Detection Dashboard
 =====================================
 Screens:
@@ -9,7 +13,6 @@ Screens:
   4  ANALYZING — spinner while model runs
   5  RESULTS   — full eval + DB history
 """
-
 import streamlit as st
 import pandas as pd
 import numpy as np

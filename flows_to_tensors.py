@@ -1,3 +1,8 @@
+"""
+AI-894
+This file converts network flow data into graph tensors for use in Graph Neural Networks. It constructs nodes from flow features and edges based on communication patterns.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 import numpy as np
 import pandas as pd
 import logging

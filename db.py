@@ -1,3 +1,8 @@
+"""
+AI-894
+This file handles database operations for storing captured flows and model inferences. It manages the SQLite connection and schema creation.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 import math
 import os
 import sqlite3

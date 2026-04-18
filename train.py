@@ -1,3 +1,8 @@
+"""
+AI-894
+This file handles the training pipeline for the Graph Convolutional Network (GCN) model. It processes training data, trains the model, and saves the resulting weights.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 import argparse
 import logging
 import os

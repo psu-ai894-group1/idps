@@ -1,3 +1,8 @@
+"""
+AI-894
+This file translates CIC-IDS-2017 dataset column names to pyflowmeter column names. It is used to ensure dataset compatibility with the feature extraction pipeline.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 # CIC-IDS-2017 column names -> pyflowmeter column names
 CIC_TO_PYFLOWMETER_COLUMNS = {
     "Source IP": "src_ip",

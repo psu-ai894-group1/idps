@@ -1,3 +1,8 @@
+"""
+AI-894
+This file defines the architecture and inference logic of the Graph Convolutional Network (GCN) model. It includes custom layers and training utilities for node classification.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 import tensorflow as tf
 import numpy as np
 import logging

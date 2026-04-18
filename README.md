@@ -3,8 +3,8 @@
 A host-based IDS that uses a Graph Neural Network (GNN) to detect attacks.
 
 ## Team
-Karla Gonzalez Caballero
-Christopher Umbel
+Karla Gonzalez Caballero (kxg5613@psu.edu)
+Christopher Umbel (czu5008@psu.edu)
 
 ## System Requirements
 

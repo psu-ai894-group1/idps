@@ -1,3 +1,8 @@
+"""
+AI-894
+This file captures network traffic and extracts flow features using pyflowmeter. It can save the extracted flows to a CSV file for analysis.
+Authors: Karla Gonzalez Caballero (kxg5613@psu.edu), Christopher Umbel (czu5008@psu.edu)
+"""
 import argparse
 import logging
 import os
