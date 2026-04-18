@@ -9,3 +9,6 @@ scapy
 pyflowmeter
 netifaces
 streamlit
+numpy
+scipy
+joblib
