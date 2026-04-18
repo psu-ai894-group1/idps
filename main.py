@@ -65,6 +65,7 @@ class FlowFileHandler(FileSystemEventHandler):
         logging.info("FlowFileHandler initialized")
 
     def process_flows(self, flows_df):
+        """Process the flows and save the inferences to the database."""
         logging.info("Processing flows: %d", len(flows_df))
         node_features, adjacency, _, _ = flows_to_tensors(flows_df, scaler=self.scaler, log_transform=True)
         preds, confidences = predict(self.model, node_features, adjacency)
@@ -79,21 +80,27 @@ class FlowFileHandler(FileSystemEventHandler):
             self._write_trace(node_features, preds, confidences, flows_df)
 
     def _write_trace(self, node_features, preds, confidences, flows_df):
+        """Write the trace to the file."""
         from config import feature_names, use_features
         available = [f for f in feature_names if f in use_features]
         features_np = node_features.numpy() if hasattr(node_features, 'numpy') else node_features
         trace_df = pd.DataFrame(features_np, columns=available)
+        
         if 'dst_port' in trace_df.columns:
             trace_df['dst_port'] = flows_df['dst_port'].values
         else:
             trace_df.insert(0, 'dst_port', flows_df['dst_port'].values)
+
         trace_df.insert(0, 'dst_ip', flows_df['dst_ip'].values)
+        
         if 'src_port' in flows_df.columns:
             trace_df.insert(0, 'src_port', flows_df['src_port'].values)
+        
         trace_df.insert(0, 'src_ip', flows_df['src_ip'].values)
         trace_df['predicted_label'] = [class_names[p] for p in preds]
         trace_df['confidence'] = confidences
 
+        # Write the trace to the file
         write_header = not self.trace_header_written
         trace_df.to_csv(self.trace_path, mode='a', index=False, header=write_header)
         self.trace_header_written = True

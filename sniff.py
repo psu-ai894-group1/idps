@@ -14,7 +14,6 @@ from pyflowmeter.sniffer import create_sniffer
 from pyflowmeter.features.flow_bytes import FlowBytes
 from pyflowmeter.features.context.packet_direction import PacketDirection
 
-
 def _patched_get_min_forward_header_bytes(self):
     packets = self.feature.packets
     if not packets:
@@ -42,7 +41,6 @@ def _patched_get_bulk_rate(self, direction):
 
 FlowBytes.get_bulk_rate = _patched_get_bulk_rate
 
-
 def setup_logging():
     """
     Configure logging to output/sniff.log and stdout.
@@ -64,7 +62,6 @@ def setup_logging():
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(logging.Formatter(fmt, datefmt=date_fmt))
     root.addHandler(stream_handler)
-
 
 def main():
     setup_logging()
@@ -97,7 +94,6 @@ def main():
     except KeyboardInterrupt:
         sniffer.stop()
         logging.info("Stopped. Flows saved to %s", args.to_csv_path)
-
 
 if __name__ == "__main__":
     main()
