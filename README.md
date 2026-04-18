@@ -18,6 +18,35 @@ A host-based Intrusion Detection System (IDS) that leverages a Graph Neural Netw
 
 This application requires Linux to operate and can be installed natively on most RedHat or Debian-based distributions. Python 3 is required if running directly from the source code.
 
+## Project Structure
+
+```text
+├── build-deb.sh          # Script to build a Debian package (.deb).
+├── build-rpm.sh          # Script to build a RedHat package (.rpm).
+├── cic_to_flowmeter.py   # Translates CIC-IDS-2017 dataset columns to pyflowmeter format.
+├── config.py             # Defines configuration parameters and hyperparameters for the model.
+├── dashboard.py          # Streamlit web dashboard for live traffic detection and batch tests.
+├── db.py                 # Handles SQLite database operations for storing flows and inferences.
+├── flows_to_tensors.py   # Converts network flow data into graph tensors for the GNN.
+├── idps-1.0.3.rpm        # Pre-built RPM package for RedHat-based distributions.
+├── idps.service          # systemd service configuration for running the IDS in the background.
+├── main.py               # Main entry point for the real-time intrusion detection system.
+├── Makefile              # Build file for generating packages and other automated tasks.
+├── model.py              # Defines the Graph Convolutional Network (GCN) architecture and logic.
+├── models/               # Directory containing the pre-trained models and scalers.
+│   ├── idps.weights.h5                  # Pre-trained GCN model weights.
+│   └── idps.weights.h5.scaler.joblib    # Pre-fitted StandardScaler for feature normalization.
+├── README.md             # This project documentation file.
+├── requirements.txt      # Python dependencies required to run the project.
+├── run_dashboard.sh      # Shell script to start the Streamlit UI dashboard.
+├── run.sh                # Shell script to start the main detection system.
+├── sniff.py              # Captures network traffic and extracts flow features using pyflowmeter.
+├── test.py               # Evaluates a trained GCN model on a test dataset.
+├── train.py              # Script to train the GCN model on a labeled dataset.
+├── train.sh              # Shell script wrapper for the training pipeline.
+└── VERSION               # The current version number of the IDPS software.
+```
+
 ---
 
 # Installing
