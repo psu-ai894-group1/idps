@@ -10,7 +10,6 @@ Christopher Umbel
 
 This application requires Linux to operate and can be installed on most RedHat or Debian-based distributions.
 
-
 # Installing
 
 ## Debian
@@ -22,7 +21,7 @@ apt install ./idps_1.0.3.deb
 ## RedHat
 
 ```
-dnf install ./idps_1.0.3.deb
+dnf install ./idps_1.0.3.rpm
 ```
 
 # Running
@@ -38,7 +37,7 @@ systemctl start idps
 and ensure that it's configured to start on boot with
 
 ```
-systemctl start idps
+systemctl enable idps
 ```
 
 ## Running the dashboard (UI)
@@ -49,6 +48,8 @@ systemctl start idps
 
 # Training
 
+The `train.py` script can be used to train a model based on a labelled training CSV as specified by the `--csv-path` argument. The .keras output (including the feature scaler) will be saved according to the `--model-path` argument.
+
 ```
-python3 train.py --csv-path /mnt/data/capstone/GeneratedLabelledFlows/TrafficLabelling/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX_cleaned_short.csv --model-path /mnt/data/models/idps_portscan.keras
+python3 train.py --csv-path labelled_training_data.csv --model-path ./models/idps_model.keras
 ```
