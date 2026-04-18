@@ -13,6 +13,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 from flows_to_tensors import flows_to_tensors
 from cic_to_flowmeter import cic_to_pyflowmeter_columns
 from model import predict, load_model_weights
+import config
 from config import class_names
 
 logging.basicConfig(level=logging.INFO)
@@ -63,12 +64,18 @@ def main():
     logging.info(f"Loaded {len(flows_df)} rows from {args.csv_path}")
 
     logging.info("Converting flows to tensors")
-    node_features, adjacency, labels, _ = flows_to_tensors(flows_df, scaler=scaler)
+    node_features, adjacency, labels, _ = flows_to_tensors(
+        flows_df, scaler=scaler, log_transform=config.log_transform_training
+    )
 
     logging.info(f"Loading model weights from {args.model_path}")
     model = load_model_weights(args.model_path, num_features=node_features.shape[1])
 
-    logging.info("Running inference")
+    threshold = getattr(config, 'attack_confidence_threshold', 0.0)
+    logging.info(
+        f"Running inference (attack_confidence_threshold={threshold}; "
+        f"attack predictions below this are reported as BENIGN)"
+    )
     preds, _ = predict(model, node_features, adjacency)
     true = labels.numpy()
 
