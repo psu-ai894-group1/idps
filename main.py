@@ -74,6 +74,7 @@ class FlowFileHandler(FileSystemEventHandler):
             label = class_names[preds[i]]
             logging.info("Row %d predicted label: %s (confidence: %.4f)", i, label, confidences[i])
 
+        # Save the flows and inferences to the database
         save_flows_and_inferences(flows_df, preds, confidences, class_names)
 
         if self.trace_path:
@@ -86,16 +87,19 @@ class FlowFileHandler(FileSystemEventHandler):
         features_np = node_features.numpy() if hasattr(node_features, 'numpy') else node_features
         trace_df = pd.DataFrame(features_np, columns=available)
         
+        # Add the destination port column
         if 'dst_port' in trace_df.columns:
             trace_df['dst_port'] = flows_df['dst_port'].values
         else:
             trace_df.insert(0, 'dst_port', flows_df['dst_port'].values)
 
+        # Add the destination IP column
         trace_df.insert(0, 'dst_ip', flows_df['dst_ip'].values)
         
+        # Add the source port column
         if 'src_port' in flows_df.columns:
-            trace_df.insert(0, 'src_port', flows_df['src_port'].values)
-        
+            trace_df.insert(0, 'src_port', flows_df['src_port'].values)        
+
         trace_df.insert(0, 'src_ip', flows_df['src_ip'].values)
         trace_df['predicted_label'] = [class_names[p] for p in preds]
         trace_df['confidence'] = confidences
@@ -209,10 +213,11 @@ def main():
     sniffer = None
     flows_csv = '/tmp/idps_flows.csv'
 
+    # Create a sniffer to capture flows
     sniffer = create_sniffer(
-        input_interface=args.iface,
-        to_csv=True,
-        output_file=flows_csv
+        input_interface=args.iface, # Network interface to capture
+        to_csv=True, # Save flows to a CSV file
+        output_file=flows_csv # Path to save the CSV file
     )
 
     scaler_path = args.model_path + ".scaler.joblib"
@@ -228,6 +233,7 @@ def main():
     get_connection().close()
     logging.info(f"Database ready at {get_db_path()}")
 
+    # Create an observer to watch for new flow files
     observer = Observer()
     observer.schedule(FlowFileHandler(model, scaler, trace_path=args.trace_path), path='/tmp/', recursive=False)
     observer.start()
