@@ -26,6 +26,8 @@ This application requires Linux to operate and can be installed natively on most
 ├── cic_to_flowmeter.py   # Translates CIC-IDS-2017 dataset columns to pyflowmeter format.
 ├── config.py             # Defines configuration parameters and hyperparameters for the model.
 ├── dashboard.py          # Streamlit web dashboard for live traffic detection and batch tests.
+├── data/                 # Directory for datasets and local database storage.
+│   └── test_data.csv     # Sample labeled dataset for testing and evaluation.
 ├── db.py                 # Handles SQLite database operations for storing flows and inferences.
 ├── flows_to_tensors.py   # Converts network flow data into graph tensors for the GNN.
 ├── idps-1.0.3.rpm        # Pre-built RPM package for RedHat-based distributions.
